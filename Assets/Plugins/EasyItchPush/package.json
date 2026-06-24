@@ -1,0 +1,10 @@
+{
+  "name": "com.nnican.easy-itch-push",
+  "displayName": "Easy Itch Push",
+  "version": "1.1.0",
+  "unity": "6000.0",
+  "description": "Unity Editor plugin for multi-profile builds, versioned archives, and itch.io publishing with Butler.",
+  "author": {
+    "name": "Nnican"
+  }
+}

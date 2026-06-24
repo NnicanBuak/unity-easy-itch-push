@@ -41,7 +41,8 @@ namespace EasyItchPush.Editor
     {
         private const int FileOperationRetryCount = 20;
         private const int FileOperationRetryDelayMs = 250;
-        private const string ChangelogAssetPath = "Assets/Plugins/EasyItchPush/CHANGELOG.md";
+        private const string LegacyChangelogAssetPath = "Assets/Plugins/EasyItchPush/CHANGELOG.md";
+        private const string PackageChangelogAssetPath = "Packages/com.nnican.easy-itch-push/CHANGELOG.md";
 
         // Build Profiles should be the source of truth by default.
         // Set a bool field/property named ApplyReleasePlayerSettingsOverrides=true in
@@ -371,7 +372,8 @@ namespace EasyItchPush.Editor
 
         private static void ValidateChangelogPrerequisite(EasyItchPushSettings settings, List<BuildPreflightIssue> issues)
         {
-            var changelogPath = Path.GetFullPath(ChangelogAssetPath);
+            var changelogAssetPath = ResolveChangelogAssetPath();
+            var changelogPath = Path.GetFullPath(changelogAssetPath);
             if (!File.Exists(changelogPath))
             {
                 issues.Add(new BuildPreflightIssue(
@@ -386,7 +388,7 @@ namespace EasyItchPush.Editor
             {
                 issues.Add(new BuildPreflightIssue(
                     "Build",
-                    $"Changelog {ChangelogAssetPath} does not contain the expected version header '{expectedHeader}'."));
+                    $"Changelog {changelogAssetPath} does not contain the expected version header '{expectedHeader}'."));
             }
         }
 
@@ -1572,7 +1574,8 @@ namespace EasyItchPush.Editor
 
         private static void AddChangelogToArchive(ZipArchive zip, string expectedVersion)
         {
-            var changelogPath = Path.GetFullPath(ChangelogAssetPath);
+            var changelogAssetPath = ResolveChangelogAssetPath();
+            var changelogPath = Path.GetFullPath(changelogAssetPath);
             if (!File.Exists(changelogPath))
             {
                 throw new FileNotFoundException($"Build changelog was not found at {changelogPath}.", changelogPath);
@@ -1583,10 +1586,20 @@ namespace EasyItchPush.Editor
             if (!changelogText.Contains(expectedHeader, StringComparison.Ordinal))
             {
                 throw new InvalidDataException(
-                    $"Build changelog {ChangelogAssetPath} does not contain the expected version header '{expectedHeader}'.");
+                    $"Build changelog {changelogAssetPath} does not contain the expected version header '{expectedHeader}'.");
             }
 
             zip.CreateEntryFromFile(changelogPath, "CHANGELOG.md", CompressionLevel.Optimal);
+        }
+
+        private static string ResolveChangelogAssetPath()
+        {
+            if (File.Exists(Path.GetFullPath(PackageChangelogAssetPath)))
+            {
+                return PackageChangelogAssetPath;
+            }
+
+            return LegacyChangelogAssetPath;
         }
 
         private static bool ShouldSkipArchiveFile(string sourceDirectory, string archivePath, string file)
