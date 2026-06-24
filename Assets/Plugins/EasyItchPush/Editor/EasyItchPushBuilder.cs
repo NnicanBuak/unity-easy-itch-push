@@ -41,9 +41,6 @@ namespace EasyItchPush.Editor
     {
         private const int FileOperationRetryCount = 20;
         private const int FileOperationRetryDelayMs = 250;
-        private const string PackageName = "com.nnican.easy-itch-push";
-        private const string LegacyChangelogAssetPath = "Assets/Plugins/EasyItchPush/CHANGELOG.md";
-
         // Build Profiles should be the source of truth by default.
         // Set a bool field/property named ApplyReleasePlayerSettingsOverrides=true in
         // EasyItchPushSettings if you intentionally want the old global PlayerSettings override behaviour.
@@ -346,23 +343,14 @@ namespace EasyItchPush.Editor
 
         private static void ValidateChangelogPrerequisite(EasyItchPushSettings settings, List<BuildPreflightIssue> issues)
         {
-            var changelogAssetPath = ResolveChangelogAssetPath();
-            var changelogPath = Path.GetFullPath(changelogAssetPath);
-            if (!File.Exists(changelogPath))
+            if (!EasyItchPushChangelog.TryGetVersionChangelogMarkdown(
+                    settings.ResolvedVersion,
+                    out _,
+                    out var errorMessage))
             {
                 issues.Add(new BuildPreflightIssue(
                     "Build",
-                    $"Required changelog file was not found at {changelogPath}."));
-                return;
-            }
-
-            var expectedHeader = $"## v{settings.ResolvedVersion}";
-            var changelogText = File.ReadAllText(changelogPath);
-            if (!changelogText.Contains(expectedHeader, StringComparison.Ordinal))
-            {
-                issues.Add(new BuildPreflightIssue(
-                    "Build",
-                    $"Changelog {changelogAssetPath} does not contain the expected version header '{expectedHeader}'."));
+                    errorMessage));
             }
         }
 
@@ -1508,7 +1496,9 @@ namespace EasyItchPush.Editor
             var tempArchivePath = archivePath + $".{Guid.NewGuid():N}.tmp";
 
             var files = Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories)
-                .Where(file => !ShouldSkipArchiveFile(sourceDirectory, archivePath, file))
+                .Where(file =>
+                    !ShouldSkipArchiveFile(sourceDirectory, archivePath, file) &&
+                    !EasyItchPushChangelog.IsBuildChangelogFile(sourceDirectory, file))
                 .ToList();
 
             if (files.Count == 0)
@@ -1519,6 +1509,8 @@ namespace EasyItchPush.Editor
 
             try
             {
+                EasyItchPushChangelog.WriteVersionChangelogToBuildDirectory(sourceDirectory, settings.ResolvedVersion);
+
                 using (var zip = ZipFile.Open(tempArchivePath, ZipArchiveMode.Create))
                 {
                     foreach (var file in files)
@@ -1548,53 +1540,11 @@ namespace EasyItchPush.Editor
 
         private static void AddChangelogToArchive(ZipArchive zip, string expectedVersion)
         {
-            var changelogAssetPath = ResolveChangelogAssetPath();
-            var changelogPath = Path.GetFullPath(changelogAssetPath);
-            if (!File.Exists(changelogPath))
-            {
-                throw new FileNotFoundException($"Build changelog was not found at {changelogPath}.", changelogPath);
-            }
-
-            var expectedHeader = $"## v{expectedVersion}";
-            var changelogText = File.ReadAllText(changelogPath);
-            if (!changelogText.Contains(expectedHeader, StringComparison.Ordinal))
-            {
-                throw new InvalidDataException(
-                    $"Build changelog {changelogAssetPath} does not contain the expected version header '{expectedHeader}'.");
-            }
-
-            zip.CreateEntryFromFile(changelogPath, "CHANGELOG.md", CompressionLevel.Optimal);
-        }
-
-        private static string ResolveChangelogAssetPath()
-        {
-            var packageRoot = ResolvePackageRootPath(PackageName);
-            if (!string.IsNullOrWhiteSpace(packageRoot))
-            {
-                var packageChangelogPath = Path.Combine(packageRoot, "CHANGELOG.md");
-                if (File.Exists(packageChangelogPath))
-                {
-                    return packageChangelogPath;
-                }
-            }
-
-            return LegacyChangelogAssetPath;
-        }
-
-        private static string ResolvePackageRootPath(string packageName)
-        {
-            try
-            {
-                var package = UnityEditor.PackageManager.PackageInfo.GetAllRegisteredPackages()
-                    .FirstOrDefault(item => item != null && string.Equals(item.name, packageName, StringComparison.OrdinalIgnoreCase));
-
-                return package != null ? package.resolvedPath : string.Empty;
-            }
-            catch (Exception ex)
-            {
-                EasyItchPushLog.Warning($"Could not resolve package root for {packageName}: {ex.Message}");
-                return string.Empty;
-            }
+            var changelogMarkdown = EasyItchPushChangelog.GetVersionChangelogMarkdownOrThrow(expectedVersion);
+            var changelogEntry = zip.CreateEntry(EasyItchPushChangelog.BuildChangelogFileName, CompressionLevel.Optimal);
+            using var changelogStream = changelogEntry.Open();
+            using var changelogWriter = new StreamWriter(changelogStream, new UTF8Encoding(false));
+            changelogWriter.Write(changelogMarkdown);
         }
 
         private static bool ShouldSkipArchiveFile(string sourceDirectory, string archivePath, string file)

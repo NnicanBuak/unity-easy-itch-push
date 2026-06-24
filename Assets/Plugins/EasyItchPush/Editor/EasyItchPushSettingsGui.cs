@@ -129,6 +129,8 @@ namespace EasyItchPush.Editor
 
         public static void EnsureSettingsAreSynchronized(EasyItchPushSettings settings)
         {
+            EasyItchPushChangelog.EnsureProjectChangelogExists();
+
             if (!settings.HasVersionSnapshotChanged())
             {
                 return;

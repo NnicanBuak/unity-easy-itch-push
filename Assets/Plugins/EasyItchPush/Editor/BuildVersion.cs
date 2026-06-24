@@ -42,7 +42,7 @@ namespace EasyItchPush.Editor
             return Major * 10000 + Minor * 100 + Patch + (IsHotfix ? HotfixNumber : 0);
         }
 
-        public static BuildVersion Default => new BuildVersion(1, 0, 0);
+        public static BuildVersion Default => new BuildVersion(1, 0, 1);
 
         public static bool TryParse(string value, out BuildVersion version)
         {

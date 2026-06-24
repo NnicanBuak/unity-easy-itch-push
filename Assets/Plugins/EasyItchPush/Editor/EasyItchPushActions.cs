@@ -270,6 +270,7 @@ namespace EasyItchPush.Editor
         private static EasyItchPushSettings GetPreparedSettings()
         {
             var settings = EasyItchPushSettings.Instance;
+            EasyItchPushChangelog.EnsureProjectChangelogExists();
             EasyItchPushSettingsGui.FlushPendingSave(settings);
             EasyItchPushSettingsGui.EnsureSettingsAreSynchronized(settings);
             return settings;

@@ -113,7 +113,7 @@ namespace EasyItchPush.Editor
         public EasyItchPushMode pushMode;
         public int versionMajor = 1;
         public int versionMinor;
-        public int versionPatch;
+        public int versionPatch = 1;
         public bool versionIsHotfix;
         public int versionHotfixNumber = 1;
         public bool versionInitialized;

@@ -26,7 +26,8 @@ In Unity open `Window > Package Manager > + > Add package from git URL...` and p
 - Switches build targets automatically between profiles.
 - Writes the configured game version into Player Settings and matching Build Profile settings.
 - Creates versioned zip archives per platform after each successful build.
-- Includes `CHANGELOG.md` in every generated archive and blocks packaging when the expected version header is missing.
+- Creates `Assets/CHANGELOG.md` automatically if the project does not have one yet.
+- Uses `Assets/CHANGELOG.md` as the single changelog source and cuts the matching version section into each generated build `CHANGELOG.md`.
 - Validates build outputs before upload, including archive version consistency and HTML5 archive structure.
 - Pushes release or test builds to itch.io through Butler.
 - Logs all plugin activity to the Unity Console and to daily log files.
