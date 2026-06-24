@@ -41,8 +41,8 @@ namespace EasyItchPush.Editor
     {
         private const int FileOperationRetryCount = 20;
         private const int FileOperationRetryDelayMs = 250;
+        private const string PackageName = "com.nnican.easy-itch-push";
         private const string LegacyChangelogAssetPath = "Assets/Plugins/EasyItchPush/CHANGELOG.md";
-        private const string PackageChangelogAssetPath = "Packages/com.nnican.easy-itch-push/CHANGELOG.md";
 
         // Build Profiles should be the source of truth by default.
         // Set a bool field/property named ApplyReleasePlayerSettingsOverrides=true in
@@ -1594,12 +1594,33 @@ namespace EasyItchPush.Editor
 
         private static string ResolveChangelogAssetPath()
         {
-            if (File.Exists(Path.GetFullPath(PackageChangelogAssetPath)))
+            var packageRoot = ResolvePackageRootPath(PackageName);
+            if (!string.IsNullOrWhiteSpace(packageRoot))
             {
-                return PackageChangelogAssetPath;
+                var packageChangelogPath = Path.Combine(packageRoot, "CHANGELOG.md");
+                if (File.Exists(packageChangelogPath))
+                {
+                    return packageChangelogPath;
+                }
             }
 
             return LegacyChangelogAssetPath;
+        }
+
+        private static string ResolvePackageRootPath(string packageName)
+        {
+            try
+            {
+                var package = UnityEditor.PackageManager.PackageInfo.GetAllRegisteredPackages()
+                    .FirstOrDefault(item => item != null && string.Equals(item.name, packageName, StringComparison.OrdinalIgnoreCase));
+
+                return package != null ? package.resolvedPath : string.Empty;
+            }
+            catch (Exception ex)
+            {
+                EasyItchPushLog.Warning($"Could not resolve package root for {packageName}: {ex.Message}");
+                return string.Empty;
+            }
         }
 
         private static bool ShouldSkipArchiveFile(string sourceDirectory, string archivePath, string file)
