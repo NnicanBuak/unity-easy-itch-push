@@ -17,6 +17,12 @@ namespace EasyItchPush.Editor
         public string Version = string.Empty;
     }
 
+    internal sealed class EasyItchPushExpectedProfile
+    {
+        public string ProfileName = string.Empty;
+        public string BaseChannel = string.Empty;
+    }
+
     internal static class EasyItchPushPushValidator
     {
         private static readonly Regex VersionSuffixRegex = new Regex(
@@ -30,11 +36,7 @@ namespace EasyItchPush.Editor
         {
             artifacts = new List<EasyItchPushPushArtifact>();
             settings.AutoSyncVersionWithPlayerSettings();
-            settings.SyncProfileMappingsWithBuildProfiles();
-
-            var profiles = EasyItchPushBuildProfiles.FindAllProfileAssets()
-                .Where(profile => profile != null && settings.IsProfileEnabled(pushMode, profile.Name))
-                .ToList();
+            var profiles = GetExpectedProfiles(settings, pushMode);
             var issues = new List<string>();
             if (profiles.Count == 0)
             {
@@ -43,8 +45,8 @@ namespace EasyItchPush.Editor
 
             foreach (var profile in profiles)
             {
-                var profileName = profile.Name;
-                var baseChannel = settings.GetChannelForProfile(profileName);
+                var profileName = profile.ProfileName;
+                var baseChannel = profile.BaseChannel;
                 var archivePath = EasyItchPushBuilder.FindArchiveForProfileVersion(settings, baseChannel, profileName);
                 if (string.IsNullOrEmpty(archivePath))
                 {
@@ -83,14 +85,31 @@ namespace EasyItchPush.Editor
         {
             artifacts = new List<EasyItchPushPushArtifact>();
             var buildIssues = new List<string>();
+            settings.AutoSyncVersionWithPlayerSettings();
+            var expectedProfiles = GetExpectedProfiles(settings, pushMode);
+            var buildResultsByProfile = result.Results
+                .Where(item => item != null && !string.IsNullOrWhiteSpace(item.ProfileName))
+                .GroupBy(item => item.ProfileName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+            if (expectedProfiles.Count == 0)
+            {
+                buildIssues.Add("No enabled Unity Build Profiles were found.");
+            }
 
             if (result.Results.Count == 0)
             {
                 buildIssues.Add("No Build Profile results were produced.");
             }
 
-            foreach (var item in result.Results)
+            foreach (var profile in expectedProfiles)
             {
+                if (!buildResultsByProfile.TryGetValue(profile.ProfileName, out var item))
+                {
+                    buildIssues.Add($"{profile.ProfileName} ({profile.BaseChannel}): build result was not produced.");
+                    continue;
+                }
+
                 if (!item.Succeeded)
                 {
                     buildIssues.Add($"{item.ProfileName}: build result is {item.Result}.");
@@ -119,6 +138,25 @@ namespace EasyItchPush.Editor
             }
 
             return ValidateArtifacts(settings, pushMode, artifacts, new List<string>());
+        }
+
+        private static List<EasyItchPushExpectedProfile> GetExpectedProfiles(
+            EasyItchPushSettings settings,
+            EasyItchPushMode pushMode)
+        {
+            settings.SyncProfileMappingsWithBuildProfiles();
+
+            return EasyItchPushBuildProfiles.FindAllProfileAssets()
+                .Where(profile => profile != null &&
+                                  !string.IsNullOrWhiteSpace(profile.Name) &&
+                                  settings.IsProfileEnabled(pushMode, profile.Name))
+                .GroupBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new EasyItchPushExpectedProfile
+                {
+                    ProfileName = group.First().Name,
+                    BaseChannel = settings.GetChannelForProfile(group.First().Name)
+                })
+                .ToList();
         }
 
         private static bool ValidateArtifacts(

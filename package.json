@@ -1,0 +1,17 @@
+{
+  "name": "com.nnican.easy-itch-push",
+  "displayName": "Easy Itch Push",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "Unity Editor plugin for multi-profile builds, versioned archives, and itch.io publishing with Butler.",
+  "documentationUrl": "https://github.com/NnicanBuak/unity-easy-itch-push#readme",
+  "changelogUrl": "https://github.com/NnicanBuak/unity-easy-itch-push/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/NnicanBuak/unity-easy-itch-push",
+  "author": {
+    "name": "Nnican"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NnicanBuak/unity-easy-itch-push.git"
+  }
+}

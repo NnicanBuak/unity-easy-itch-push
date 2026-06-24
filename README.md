@@ -6,6 +6,16 @@
 
 Unity Editor plugin for building multiple platform profiles and publishing versioned archives to itch.io with Butler.
 
+## Install
+
+Install through Unity Package Manager:
+
+```text
+https://github.com/NnicanBuak/unity-easy-itch-push.git
+```
+
+In Unity open `Window > Package Manager > + > Add package from git URL...` and paste that URL.
+
 ## Screenshot
 
 ![Unity Easy Itch Push window](Assets/Plugins/EasyItchPush/Documentation~/images/window-screenshot.png)
@@ -66,19 +76,9 @@ Plugin logs are written to:
 
 This helps preserve build diagnostics even when Unity clears console output during platform switches.
 
-## Repository Layout
-
-The plugin is stored as a Unity-ready folder:
-
-```text
-Assets/Plugins/EasyItchPush
-```
-
-Copy that folder into your Unity project if you want to install the plugin manually.
-
 ## Setup
 
-1. Copy `Assets/Plugins/EasyItchPush` into your Unity project.
+1. Install the package from the git URL above.
 2. Open `Project Settings > Easy Itch Push`.
 3. Configure release and/or test itch.io settings.
 4. Set your project version.

@@ -6,6 +6,10 @@
 
 Local Unity Editor plugin for building the project and publishing builds to itch.io with Butler.
 
+## Install
+- Unity Package Manager: `https://github.com/NnicanBuak/unity-easy-itch-push.git`
+- In Unity open `Window > Package Manager > + > Add package from git URL...` and paste that URL.
+
 ## Screenshot
 
 ![Easy Itch Push window](Documentation~/images/window-screenshot.png)
