@@ -9,9 +9,11 @@ namespace EasyItchPush.Editor
     {
         private const double SaveDebounceDelaySeconds = 0.3d;
         private const float ProfileDragHandleWidth = 42f;
+        private const float ProfileDragHandleIconWidth = 20f;
         private const float ProfileToggleWidth = 18f;
         private const float ProfileRowSpacing = 4f;
         private static readonly string[] PushModeLabels = { "Release", "Test" };
+        private static readonly GUIContent ProfileDragHandleFallbackIcon = EditorGUIUtility.IconContent("d_Grid.MoveTool");
         private static bool pendingSave;
         private static double lastEditTime;
         private static int dragSourceProfileIndex = -1;
@@ -278,7 +280,7 @@ namespace EasyItchPush.Editor
 
                 DrawProfileInsertMarker(rowRect, i);
 
-                GUI.Box(handleRect, "Drag", EditorStyles.miniButton);
+                DrawProfileDragHandle(handleRect);
 
                 var isEnabled = mapping.IsEnabled(pushMode);
                 var updatedIsEnabled = EditorGUI.Toggle(toggleRect, isEnabled);
@@ -407,6 +409,24 @@ namespace EasyItchPush.Editor
             dragSourceProfileIndex = -1;
             dragInsertProfileIndex = -1;
             isDraggingProfileRow = false;
+        }
+
+        private static void DrawProfileDragHandle(Rect handleRect)
+        {
+            var dragHandleStyle = GUI.skin.FindStyle("RL DragHandle");
+            var dragHandleIconRect = new Rect(
+                handleRect.x + ((handleRect.width - ProfileDragHandleIconWidth) * 0.5f),
+                handleRect.y,
+                ProfileDragHandleIconWidth,
+                handleRect.height);
+
+            if (dragHandleStyle != null)
+            {
+                GUI.Label(dragHandleIconRect, GUIContent.none, dragHandleStyle);
+                return;
+            }
+
+            GUI.Box(dragHandleIconRect, ProfileDragHandleFallbackIcon, EditorStyles.miniButton);
         }
 
         private static void DrawProfileValidation(EasyItchPushSettings settings)
