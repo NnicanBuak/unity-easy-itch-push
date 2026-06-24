@@ -27,6 +27,7 @@ namespace EasyItchPush.Editor
             settings.SyncProfileMappingsWithBuildProfiles();
             var versionBeforeEdit = settings.CurrentVersion;
             EditorGUI.BeginChangeCheck();
+            var didReorderProfiles = false;
 
             if (options.ShowPushModeSelector)
             {
@@ -80,12 +81,12 @@ namespace EasyItchPush.Editor
             if (settings.applyReleaseObfuscation)
             {
                 EditorGUILayout.HelpBox(
-                    "Release Obfuscation applies Unity release hardening without mutating settings: forces release build options, enables IL2CPP where supported, high managed stripping, and Strip Engine Code.",
+                    "Release Obfuscation applies Unity release hardening without mutating settings: forces release build options, enables IL2CPP for targets with safe per-target backend overrides, and applies high managed stripping plus Strip Engine Code. Desktop standalone profiles keep their own backend to avoid Windows/Linux/macOS cross-profile leakage.",
                     MessageType.Info);
             }
 
             EditorGUILayout.Space(8f);
-            DrawProfileMappings(settings);
+            didReorderProfiles = DrawProfileMappings(settings);
 
             EditorGUILayout.Space(8f);
             EditorGUILayout.LabelField("Butler", EditorStyles.boldLabel);
@@ -103,7 +104,7 @@ namespace EasyItchPush.Editor
 
             DrawProfileValidation(settings);
 
-            if (!EditorGUI.EndChangeCheck())
+            if (!EditorGUI.EndChangeCheck() && !didReorderProfiles)
             {
                 return false;
             }
@@ -210,26 +211,27 @@ namespace EasyItchPush.Editor
             }
         }
 
-        private static void DrawProfileMappings(EasyItchPushSettings settings)
+        private static bool DrawProfileMappings(EasyItchPushSettings settings)
         {
             EditorGUILayout.LabelField("Build Profiles", EditorStyles.boldLabel);
             if (settings.profileChannelMappings == null || settings.profileChannelMappings.Length == 0)
             {
                 EditorGUILayout.HelpBox("Create Unity Build Profiles first. Selected profiles here will be built and pushed.", MessageType.Info);
-                return;
+                return false;
             }
 
             EditorGUILayout.HelpBox(
-                "Selected profiles are built in sequence. Base channel controls the local build folder and the test push channel. Release pushes automatically append the major/minor/patch version to that base channel.",
+                "Selected profiles are built in the order shown here. Use the arrow buttons to change the build order. Base channel controls the local build folder and the test push channel. Release pushes automatically append the major/minor/patch version to that base channel.",
                 MessageType.None);
 
             var macOsProfileNames = GetMacOsProfileNames();
             var shouldWarnAboutMacOsMonoFallback = Application.platform != RuntimePlatform.OSXEditor;
             var pushMode = settings.PushMode;
+            var didReorder = false;
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                GUILayout.Space(24f);
+                GUILayout.Space(72f);
                 EditorGUILayout.LabelField("Profile", EditorStyles.miniBoldLabel);
                 EditorGUILayout.LabelField("Base Channel", EditorStyles.miniBoldLabel);
             }
@@ -244,6 +246,28 @@ namespace EasyItchPush.Editor
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
+                    using (new EditorGUI.DisabledScope(i == 0))
+                    {
+                        if (GUILayout.Button("Up", GUILayout.Width(30f)) &&
+                            settings.MoveProfileMapping(i, i - 1))
+                        {
+                            didReorder = true;
+                            GUI.changed = true;
+                            break;
+                        }
+                    }
+
+                    using (new EditorGUI.DisabledScope(i == settings.profileChannelMappings.Length - 1))
+                    {
+                        if (GUILayout.Button("Dn", GUILayout.Width(30f)) &&
+                            settings.MoveProfileMapping(i, i + 1))
+                        {
+                            didReorder = true;
+                            GUI.changed = true;
+                            break;
+                        }
+                    }
+
                     var isEnabled = mapping.IsEnabled(pushMode);
                     var updatedIsEnabled = EditorGUILayout.Toggle(isEnabled, GUILayout.Width(18f));
                     if (updatedIsEnabled != isEnabled)
@@ -268,6 +292,8 @@ namespace EasyItchPush.Editor
                         MessageType.Warning);
                 }
             }
+
+            return didReorder;
         }
 
         private static void DrawProfileValidation(EasyItchPushSettings settings)

@@ -49,10 +49,6 @@ namespace EasyItchPush.Editor
         // EasyItchPushSettings if you intentionally want the old global PlayerSettings override behaviour.
         private const bool DefaultApplyReleasePlayerSettingsOverrides = false;
 
-        // macOS builds made from a non-macOS editor often require Mono. Build them last so
-        // any Standalone backend/profile switch cannot affect Windows/Linux builds in the same Build All run.
-        private const bool MoveMacOsBuildsToEndOnNonMacHosts = true;
-
         private const string LinuxSysrootPackageName = "com.unity.sdk.linux-x86_64";
         private const string WindowsLinuxToolchainPackageName = "com.unity.toolchain.win-x86_64-linux";
         private const string LinuxSysrootTypeName = "UnityEditor.Il2Cpp.SysrootLinuxX86_64";
@@ -177,7 +173,7 @@ namespace EasyItchPush.Editor
             settings.SyncProfileMappingsWithBuildProfiles();
             settings.SyncVersionToPlayerSettings();
 
-            var jobs = OrderJobsForSafeBackendSwitching(CreateProfileBuildJobs(settings));
+            var jobs = CreateProfileBuildJobs(settings);
             var result = new EasyItchPushBuildAllResult();
             if (jobs.Count == 0)
             {
@@ -245,12 +241,24 @@ namespace EasyItchPush.Editor
         private static List<ProfileBuildJob> CreateProfileBuildJobs(EasyItchPushSettings settings)
         {
             var jobs = new List<ProfileBuildJob>();
-            var profileAssets = EasyItchPushBuildProfiles.FindAllProfileAssets()
-                .Where(profile => profile != null && settings.IsProfileEnabledNoSync(profile.Name))
-                .ToList();
+            var profileAssetsByName = EasyItchPushBuildProfiles.FindAllProfileAssets()
+                .Where(profile => profile != null && !string.IsNullOrWhiteSpace(profile.Name))
+                .GroupBy(profile => profile.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-            foreach (var profileAsset in profileAssets)
+            foreach (var mapping in settings.profileChannelMappings ?? Array.Empty<EasyItchPushProfileMapping>())
             {
+                if (mapping == null || !settings.IsProfileEnabledNoSync(mapping.profileName))
+                {
+                    continue;
+                }
+
+                if (!profileAssetsByName.TryGetValue(mapping.profileName, out var profileAsset) || profileAsset == null)
+                {
+                    EasyItchPushLog.Warning($"Skipping missing Build Profile asset for mapping: {mapping.profileName}");
+                    continue;
+                }
+
                 if (profileAsset == null || string.IsNullOrEmpty(profileAsset.Path))
                 {
                     EasyItchPushLog.Warning("Skipping missing Build Profile asset.");
@@ -284,40 +292,6 @@ namespace EasyItchPush.Editor
             }
 
             return jobs;
-        }
-
-
-        private static List<ProfileBuildJob> OrderJobsForSafeBackendSwitching(List<ProfileBuildJob> jobs)
-        {
-            if (!MoveMacOsBuildsToEndOnNonMacHosts || jobs == null || jobs.Count <= 1)
-            {
-                return jobs ?? new List<ProfileBuildJob>();
-            }
-
-            var ordered = jobs
-                .Select((job, index) => new { Job = job, Index = index })
-                .OrderBy(item => IsMacOsBuildOnNonMacHost(item.Job.BuildTarget) ? 1 : 0)
-                .ThenBy(item => item.Index)
-                .Select(item => item.Job)
-                .ToList();
-
-            if (!jobs.SequenceEqual(ordered))
-            {
-                EasyItchPushLog.Info(
-                    "Build All order adjusted for safer backend switching: " +
-                    string.Join(", ", ordered.Select(job => $"{job.ProfileName}:{job.BuildTarget}")));
-            }
-
-            return ordered;
-        }
-
-        private static bool IsMacOsBuildOnNonMacHost(BuildTarget target)
-        {
-#if UNITY_EDITOR_OSX
-            return false;
-#else
-            return target == BuildTarget.StandaloneOSX;
-#endif
         }
 
         private static bool ValidateBuildAllPrerequisites(EasyItchPushSettings settings, List<ProfileBuildJob> jobs)

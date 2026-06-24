@@ -508,6 +508,11 @@ namespace EasyItchPush.Editor
         public void SyncProfileMappingsWithBuildProfiles()
         {
             var profiles = EasyItchPushBuildProfiles.FindAllProfileAssets();
+            var profileNames = new HashSet<string>(
+                profiles
+                    .Where(profile => profile != null && !string.IsNullOrWhiteSpace(profile.Name))
+                    .Select(profile => profile.Name),
+                StringComparer.OrdinalIgnoreCase);
             var existingMappings = new Dictionary<string, EasyItchPushProfileMapping>(StringComparer.OrdinalIgnoreCase);
 
             if (profileChannelMappings != null)
@@ -524,10 +529,41 @@ namespace EasyItchPush.Editor
                 }
             }
 
-            var mappings = new EasyItchPushProfileMapping[profiles.Count];
-            for (var i = 0; i < profiles.Count; i++)
+            var orderedMappings = new List<EasyItchPushProfileMapping>(profiles.Count);
+            var consumedProfileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (profileChannelMappings != null)
             {
-                var profileName = profiles[i].Name;
+                foreach (var existingMapping in profileChannelMappings)
+                {
+                    if (existingMapping == null ||
+                        string.IsNullOrWhiteSpace(existingMapping.profileName) ||
+                        !profileNames.Contains(existingMapping.profileName) ||
+                        !consumedProfileNames.Add(existingMapping.profileName))
+                    {
+                        continue;
+                    }
+
+                    existingMapping.EnsureModeEnabledInitialized();
+                    if (string.IsNullOrWhiteSpace(existingMapping.channel))
+                    {
+                        existingMapping.channel = GetDefaultChannelForProfile(existingMapping.profileName);
+                    }
+
+                    orderedMappings.Add(existingMapping);
+                }
+            }
+
+            foreach (var profile in profiles)
+            {
+                if (profile == null ||
+                    string.IsNullOrWhiteSpace(profile.Name) ||
+                    consumedProfileNames.Contains(profile.Name))
+                {
+                    continue;
+                }
+
+                var profileName = profile.Name;
                 if (!existingMappings.TryGetValue(profileName, out var mapping) || mapping == null)
                 {
                     mapping = new EasyItchPushProfileMapping(profileName, GetDefaultChannelForProfile(profileName));
@@ -540,10 +576,29 @@ namespace EasyItchPush.Editor
                     mapping.channel = GetDefaultChannelForProfile(profileName);
                 }
 
-                mappings[i] = mapping;
+                orderedMappings.Add(mapping);
+                consumedProfileNames.Add(profileName);
             }
 
-            profileChannelMappings = mappings;
+            profileChannelMappings = orderedMappings.ToArray();
+        }
+
+        public bool MoveProfileMapping(int fromIndex, int toIndex)
+        {
+            if (profileChannelMappings == null ||
+                fromIndex < 0 ||
+                toIndex < 0 ||
+                fromIndex >= profileChannelMappings.Length ||
+                toIndex >= profileChannelMappings.Length ||
+                fromIndex == toIndex)
+            {
+                return false;
+            }
+
+            var mapping = profileChannelMappings[fromIndex];
+            profileChannelMappings[fromIndex] = profileChannelMappings[toIndex];
+            profileChannelMappings[toIndex] = mapping;
+            return true;
         }
 
         public void LoadVersionFromPlayerSettings()
@@ -832,7 +887,7 @@ namespace EasyItchPush.Editor
 
             try
             {
-                var scriptingBackendLabel = "unchanged";
+                var scriptingBackendLabel = "Build Profile";
 
                 if (RequiresMonoFallbackForMacOsBuild(target))
                 {
@@ -843,8 +898,16 @@ namespace EasyItchPush.Editor
                 }
                 else if (forceIl2CppForRelease && SupportsIl2Cpp(target))
                 {
-                    PlayerSettings.SetScriptingBackend(namedTarget, ScriptingImplementation.IL2CPP);
-                    scriptingBackendLabel = "IL2CPP";
+                    if (UsesSharedStandaloneScriptingBackend(target))
+                    {
+                        EasyItchPushLog.Info(
+                            $"Skipped forcing IL2CPP for {target}. Desktop standalone targets share one scripting backend, so Easy Itch Push keeps the Build Profile backend to avoid leaking IL2CPP into other standalone profiles.");
+                    }
+                    else
+                    {
+                        PlayerSettings.SetScriptingBackend(namedTarget, ScriptingImplementation.IL2CPP);
+                        scriptingBackendLabel = "IL2CPP";
+                    }
                 }
 
                 if (!applyReleaseObfuscation)
@@ -868,6 +931,11 @@ namespace EasyItchPush.Editor
         {
             return target == BuildTarget.StandaloneOSX
                 && Application.platform != RuntimePlatform.OSXEditor;
+        }
+
+        private static bool UsesSharedStandaloneScriptingBackend(BuildTarget target)
+        {
+            return BuildPipeline.GetBuildTargetGroup(target) == BuildTargetGroup.Standalone;
         }
 
         private static bool SupportsIl2Cpp(BuildTarget target)

@@ -1,6 +1,14 @@
 # Unity Easy Itch Push
 
+<p align="center">
+  <img src="Assets/Plugins/EasyItchPush/Documentation~/images/logo.svg" alt="Unity Easy Itch Push logo" width="160">
+</p>
+
 Unity Editor plugin for building multiple platform profiles and publishing versioned archives to itch.io with Butler.
+
+## Screenshot
+
+![Unity Easy Itch Push window](Assets/Plugins/EasyItchPush/Documentation~/images/window-screenshot.png)
 
 ## What It Does
 

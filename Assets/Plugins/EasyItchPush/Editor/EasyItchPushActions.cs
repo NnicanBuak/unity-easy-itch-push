@@ -7,12 +7,19 @@ namespace EasyItchPush.Editor
 {
     internal static class EasyItchPushActions
     {
+        private sealed class PublishPipelineResult
+        {
+            public bool ValidationPassed;
+            public bool Succeeded;
+            public int PushedCount;
+        }
+
         [MenuItem("Tools/Easy Itch Push/Build All Profiles", priority = 0)]
         public static void BuildAllProfiles()
         {
             var settings = GetPreparedSettings();
             var result = EasyItchPushBuilder.BuildAllProfiles(settings);
-            ShowBuildAllResult(result, "Build All Profiles");
+            ShowBuildAllResult(result, "Build All Profiles", publishResult: null);
         }
 
         [MenuItem("Tools/Easy Itch Push/Build All Profiles and Push", priority = 1)]
@@ -29,12 +36,14 @@ namespace EasyItchPush.Editor
             EasyItchPushLog.Info($"Starting Build All Profiles and Push ({modeLabel})");
 
             var result = EasyItchPushBuilder.BuildAllProfiles(settings, forceRelease: true);
+            var publishResult = new PublishPipelineResult();
             if (EasyItchPushPushValidator.TryCollectBuildResult(settings, pushMode, result, out var artifacts))
             {
-                PushArtifacts(settings, pushMode, artifacts);
+                publishResult.ValidationPassed = true;
+                publishResult.Succeeded = PushArtifacts(settings, pushMode, artifacts, out publishResult.PushedCount);
             }
 
-            ShowBuildAllResult(result, $"Build All Profiles ({modeLabel})");
+            ShowBuildAllResult(result, $"Build All Profiles ({modeLabel})", publishResult);
         }
 
         [MenuItem("Tools/Easy Itch Push/Push Existing Builds", priority = 2)]
@@ -50,10 +59,14 @@ namespace EasyItchPush.Editor
 
             EasyItchPushLog.Info($"Starting Push Existing Builds ({modeLabel})");
 
+            var publishResult = new PublishPipelineResult();
             if (EasyItchPushPushValidator.TryCollectExistingBuilds(settings, pushMode, out var artifacts))
             {
-                PushArtifacts(settings, pushMode, artifacts);
+                publishResult.ValidationPassed = true;
+                publishResult.Succeeded = PushArtifacts(settings, pushMode, artifacts, out publishResult.PushedCount);
             }
+
+            ShowPushExistingResult(settings, pushMode, publishResult);
         }
 
         [MenuItem("Tools/Easy Itch Push/Install or Upgrade Butler", priority = 20)]
@@ -135,12 +148,13 @@ namespace EasyItchPush.Editor
             return true;
         }
 
-        private static void PushArtifacts(
+        private static bool PushArtifacts(
             EasyItchPushSettings settings,
             EasyItchPushMode pushMode,
-            IEnumerable<EasyItchPushPushArtifact> artifacts)
+            IEnumerable<EasyItchPushPushArtifact> artifacts,
+            out int pushedCount)
         {
-            var pushedCount = 0;
+            pushedCount = 0;
             var modeLabel = settings.GetPushModeLabel(pushMode);
 
             foreach (var artifact in artifacts)
@@ -149,7 +163,7 @@ namespace EasyItchPush.Editor
                 {
                     EasyItchPushLog.Error(
                         $"Stopped publishing {modeLabel} build after Butler failed for {artifact.ProfileName} ({artifact.RemoteChannel}).");
-                    return;
+                    return false;
                 }
 
                 pushedCount++;
@@ -157,7 +171,7 @@ namespace EasyItchPush.Editor
 
             if (pushedCount == 0)
             {
-                return;
+                return false;
             }
 
             EasyItchPushLog.Info($"Finished publishing {pushedCount} {modeLabel} artifact(s).");
@@ -172,14 +186,85 @@ namespace EasyItchPush.Editor
             {
                 Application.OpenURL(url);
             }
+
+            return true;
         }
 
-        private static void ShowBuildAllResult(EasyItchPushBuildAllResult result, string title)
+        private static void ShowBuildAllResult(EasyItchPushBuildAllResult result, string title, PublishPipelineResult publishResult)
         {
             var succeeded = result.Results.FindAll(item => item.Succeeded).Count;
             var failed = result.Results.Count - succeeded;
             EasyItchPushLog.Info(
                 $"{title} finished. Profiles={result.Results.Count}, Succeeded={succeeded}, FailedOrCancelled={failed}, LogFile={EasyItchPushLog.CurrentLogPath}");
+
+            if (result.Results.Count == 0)
+            {
+                return;
+            }
+
+            var message = new List<string>
+            {
+                $"Profiles: {result.Results.Count}",
+                $"Succeeded: {succeeded}",
+                $"Failed or cancelled: {failed}"
+            };
+
+            if (publishResult != null)
+            {
+                if (publishResult.Succeeded)
+                {
+                    message.Add($"Published artifacts: {publishResult.PushedCount}");
+                }
+                else if (publishResult.ValidationPassed)
+                {
+                    message.Add("Publishing failed before all artifacts were uploaded.");
+                }
+                else
+                {
+                    message.Add("Publishing was skipped because build output validation failed.");
+                }
+            }
+
+            message.Add(string.Empty);
+            message.Add("Log file:");
+            message.Add(EasyItchPushLog.CurrentLogPath);
+
+            var dialogTitle = result.Succeeded && (publishResult == null || publishResult.Succeeded)
+                ? $"{title} succeeded"
+                : $"{title} finished with errors";
+            EditorUtility.DisplayDialog(dialogTitle, string.Join("\n", message), "OK");
+        }
+
+        private static void ShowPushExistingResult(
+            EasyItchPushSettings settings,
+            EasyItchPushMode pushMode,
+            PublishPipelineResult publishResult)
+        {
+            var modeLabel = settings.GetPushModeLabel(pushMode);
+            var lines = new List<string>();
+            var succeeded = publishResult != null && publishResult.Succeeded;
+
+            if (succeeded)
+            {
+                lines.Add($"Published artifacts: {publishResult.PushedCount}");
+            }
+            else if (publishResult != null && publishResult.ValidationPassed)
+            {
+                lines.Add("Publishing failed before all artifacts were uploaded.");
+            }
+            else
+            {
+                lines.Add("Publishing was skipped because validation failed.");
+            }
+
+            lines.Add(string.Empty);
+            lines.Add("Log file:");
+            lines.Add(EasyItchPushLog.CurrentLogPath);
+
+            EditorUtility.DisplayDialog(
+                succeeded ? $"Push Existing ({modeLabel}) succeeded" : $"Push Existing ({modeLabel}) finished with errors",
+                string.Join("\n", lines),
+                "OK");
         }
 
         private static EasyItchPushSettings GetPreparedSettings()

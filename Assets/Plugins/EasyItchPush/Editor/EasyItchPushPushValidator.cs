@@ -82,24 +82,24 @@ namespace EasyItchPush.Editor
             out List<EasyItchPushPushArtifact> artifacts)
         {
             artifacts = new List<EasyItchPushPushArtifact>();
-            var issues = new List<string>();
+            var buildIssues = new List<string>();
 
             if (result.Results.Count == 0)
             {
-                issues.Add("No Build Profile results were produced.");
+                buildIssues.Add("No Build Profile results were produced.");
             }
 
             foreach (var item in result.Results)
             {
                 if (!item.Succeeded)
                 {
-                    issues.Add($"{item.ProfileName}: build result is {item.Result}.");
+                    buildIssues.Add($"{item.ProfileName}: build result is {item.Result}.");
                     continue;
                 }
 
                 if (string.IsNullOrEmpty(item.ArchivePath))
                 {
-                    issues.Add($"{item.ProfileName} ({item.Channel}): zip archive was not created.");
+                    buildIssues.Add($"{item.ProfileName} ({item.Channel}): zip archive was not created.");
                     continue;
                 }
 
@@ -112,7 +112,13 @@ namespace EasyItchPush.Editor
                 });
             }
 
-            return ValidateArtifacts(settings, pushMode, artifacts, issues);
+            if (buildIssues.Count > 0)
+            {
+                ShowBuildStageFailed(settings, pushMode, buildIssues);
+                return false;
+            }
+
+            return ValidateArtifacts(settings, pushMode, artifacts, new List<string>());
         }
 
         private static bool ValidateArtifacts(
@@ -243,10 +249,44 @@ namespace EasyItchPush.Editor
             message.AppendLine(EasyItchPushLog.CurrentLogPath);
 
             EasyItchPushLog.Error(
-                $"Pre-push validation failed for {settings.GetPushModeLabel(pushMode)}:\n" +
+                $"Push validation failed for {settings.GetPushModeLabel(pushMode)}:\n" +
                 string.Join("\n", uniqueIssues.Select(issue => "- " + issue)));
             EditorUtility.DisplayDialog(
                 $"Easy Itch Push {settings.GetPushModeLabel(pushMode)} validation failed",
+                message.ToString(),
+                "OK");
+        }
+
+        private static void ShowBuildStageFailed(EasyItchPushSettings settings, EasyItchPushMode pushMode, List<string> issues)
+        {
+            var uniqueIssues = issues
+                .Where(issue => !string.IsNullOrWhiteSpace(issue))
+                .Distinct()
+                .ToList();
+
+            var message = new StringBuilder();
+            message.AppendLine($"Build stage failed, so {settings.GetPushModeLabel(pushMode)} publishing was skipped:");
+            message.AppendLine();
+
+            foreach (var issue in uniqueIssues.Take(12))
+            {
+                message.AppendLine("- " + issue);
+            }
+
+            if (uniqueIssues.Count > 12)
+            {
+                message.AppendLine($"- ...and {uniqueIssues.Count - 12} more issue(s). See log file for details.");
+            }
+
+            message.AppendLine();
+            message.AppendLine("Log file:");
+            message.AppendLine(EasyItchPushLog.CurrentLogPath);
+
+            EasyItchPushLog.Error(
+                $"Build stage failed before {settings.GetPushModeLabel(pushMode)} publishing:\n" +
+                string.Join("\n", uniqueIssues.Select(issue => "- " + issue)));
+            EditorUtility.DisplayDialog(
+                $"Easy Itch Push {settings.GetPushModeLabel(pushMode)} build failed",
                 message.ToString(),
                 "OK");
         }
@@ -258,7 +298,7 @@ namespace EasyItchPush.Editor
         {
             var lines = new List<string>
             {
-                $"=== Easy Itch Push Pre-Push Validation ({settings.GetPushModeLabel(pushMode)} {settings.ResolvedVersionWithPrefix}) ===",
+                $"=== Easy Itch Push Push Validation ({settings.GetPushModeLabel(pushMode)} {settings.ResolvedVersionWithPrefix}) ===",
                 $"target={settings.GetItchGameTarget(pushMode)} userversion={settings.ResolvedVersion}"
             };
 

@@ -1,6 +1,14 @@
 # Easy Itch Push
 
+<p align="center">
+  <img src="Documentation~/images/logo.svg" alt="Easy Itch Push logo" width="160">
+</p>
+
 Local Unity Editor plugin for building the project and publishing builds to itch.io with Butler.
+
+## Screenshot
+
+![Easy Itch Push window](Documentation~/images/window-screenshot.png)
 
 ## Setup
 - Open `Project Settings > Easy Itch Push`.
