@@ -595,9 +595,11 @@ namespace EasyItchPush.Editor
                 return false;
             }
 
-            var mapping = profileChannelMappings[fromIndex];
-            profileChannelMappings[fromIndex] = profileChannelMappings[toIndex];
-            profileChannelMappings[toIndex] = mapping;
+            var mappings = new List<EasyItchPushProfileMapping>(profileChannelMappings);
+            var mapping = mappings[fromIndex];
+            mappings.RemoveAt(fromIndex);
+            mappings.Insert(toIndex, mapping);
+            profileChannelMappings = mappings.ToArray();
             return true;
         }
 
