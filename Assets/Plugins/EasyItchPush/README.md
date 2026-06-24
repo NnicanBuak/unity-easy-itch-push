@@ -47,6 +47,7 @@ Local Unity Editor plugin for building the project and publishing builds to itch
 - File logs are ignored by git and survive Unity Console clears during build target/profile switches.
 
 ## Use
-- `Build All Profiles` builds all Unity Build Profiles sequentially.
+- Manual review path: run `Build All Profiles`, check the generated archives, then run `Push Existing Builds`.
+- Full automation path: run `Build All Profiles and Push`.
 - `Build All Profiles and Push` uses the currently selected `Release` or `Test` mode, always builds all profiles as **release** builds, validates every generated zip archive, then uploads all matching remote itch channels.
 - `Push Existing Builds` uses the currently selected mode and reuses existing local zip archives without rebuilding.

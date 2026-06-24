@@ -84,12 +84,17 @@ Copy that folder into your Unity project if you want to install the plugin manua
 - Butler for itch.io uploads
 - Valid itch.io credentials and project configuration
 
-## Typical Workflow
+## Typical Workflows
 
-1. Update the version and changelog.
-2. Run `Build All Profiles`.
-3. Review generated archives.
-4. Run `Build All Profiles and Push` or `Push Existing`.
+### Manual Review
+
+1. Run `Build All Profiles`.
+2. Check the generated archives.
+3. Run `Push Existing`.
+
+### Full Automation
+
+1. Run `Build All Profiles and Push`.
 
 ## Notes
 
