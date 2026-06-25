@@ -8,6 +8,8 @@ namespace EasyItchPush.Editor
     internal static class EasyItchPushSettingsGui
     {
         private const double SaveDebounceDelaySeconds = 0.3d;
+        private const double ChangelogSaveDebounceDelaySeconds = 0.3d;
+        private const float ChangelogTextAreaHeight = 180f;
         private const float ProfileDragHandleWidth = 42f;
         private const float ProfileDragHandleIconWidth = 20f;
         private const float ProfileToggleWidth = 18f;
@@ -15,11 +17,15 @@ namespace EasyItchPush.Editor
         private static readonly string[] PushModeLabels = { "Release", "Test" };
         private static readonly GUIContent ProfileDragHandleFallbackIcon = EditorGUIUtility.IconContent("d_Grid.MoveTool");
         private static bool pendingSave;
+        private static bool pendingChangelogSave;
         private static double lastEditTime;
+        private static double lastChangelogEditTime;
         private static int dragSourceProfileIndex = -1;
         private static int dragInsertProfileIndex = -1;
         private static bool isDraggingProfileRow;
         private static Vector2 dragStartMousePosition;
+        private static string cachedChangelogVersion = string.Empty;
+        private static string cachedChangelogNotes = string.Empty;
 
         internal readonly struct DrawOptions
         {
@@ -66,6 +72,15 @@ namespace EasyItchPush.Editor
             EditorGUILayout.HelpBox(
                 "Version sync is automatic: edits here update global PlayerSettings and Unity 6 Build Profile Player Settings.",
                 MessageType.None);
+
+            var didVersionChange = DidVersionChange(versionBeforeEdit, settings.CurrentVersion);
+            if (didVersionChange)
+            {
+                PersistVersionChange(settings);
+            }
+
+            EditorGUILayout.Space(8f);
+            DrawCurrentVersionChangelog(settings, didVersionChange);
 
             EditorGUILayout.Space(8f);
             DrawActiveTargetFields(settings);
@@ -118,11 +133,6 @@ namespace EasyItchPush.Editor
                 return false;
             }
 
-            if (DidVersionChange(versionBeforeEdit, settings.CurrentVersion))
-            {
-                settings.SyncVersionToPlayerSettings();
-            }
-
             ScheduleSave();
             return true;
         }
@@ -130,6 +140,8 @@ namespace EasyItchPush.Editor
         public static void EnsureSettingsAreSynchronized(EasyItchPushSettings settings)
         {
             EasyItchPushChangelog.EnsureProjectChangelogExists();
+            FlushPendingSave(settings);
+            FlushPendingChangelogSave();
 
             if (!settings.HasVersionSnapshotChanged())
             {
@@ -475,14 +487,23 @@ namespace EasyItchPush.Editor
 
         public static bool FlushPendingSaveIfIdle(EasyItchPushSettings settings)
         {
+            var didFlushAnything = false;
+
+            if (pendingChangelogSave &&
+                EditorApplication.timeSinceStartup - lastChangelogEditTime >= ChangelogSaveDebounceDelaySeconds)
+            {
+                FlushPendingChangelogSave();
+                didFlushAnything = true;
+            }
+
             if (!pendingSave)
             {
-                return false;
+                return didFlushAnything;
             }
 
             if (EditorApplication.timeSinceStartup - lastEditTime < SaveDebounceDelaySeconds)
             {
-                return false;
+                return didFlushAnything;
             }
 
             FlushPendingSave(settings);
@@ -499,6 +520,17 @@ namespace EasyItchPush.Editor
             pendingSave = false;
             settings.SyncVersionToPlayerSettings();
             settings.SaveSettings();
+        }
+
+        public static void FlushPendingChangelogSave()
+        {
+            if (!pendingChangelogSave || string.IsNullOrWhiteSpace(cachedChangelogVersion))
+            {
+                return;
+            }
+
+            pendingChangelogSave = false;
+            EasyItchPushChangelog.SetVersionNotes(cachedChangelogVersion, cachedChangelogNotes);
         }
 
         private static bool DidVersionChange(BuildVersion before, BuildVersion after)
@@ -532,6 +564,67 @@ namespace EasyItchPush.Editor
             }
 
             return profileNames;
+        }
+
+        private static void PersistVersionChange(EasyItchPushSettings settings)
+        {
+            FlushPendingChangelogSave();
+            settings.SyncVersionToPlayerSettings();
+            settings.SaveSettings();
+            EasyItchPushChangelog.EnsureVersionSectionExists(settings.ResolvedVersion);
+            LoadCachedChangelogForVersion(settings.ResolvedVersion, forceReload: true);
+        }
+
+        private static void DrawCurrentVersionChangelog(EasyItchPushSettings settings, bool didVersionChange)
+        {
+            var version = settings.ResolvedVersion;
+            LoadCachedChangelogForVersion(version, forceReload: didVersionChange);
+
+            EditorGUILayout.LabelField("Changelog", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                $"Edits update the `## v{version}` section in Assets/CHANGELOG.md.",
+                MessageType.None);
+
+            EditorGUI.BeginChangeCheck();
+            var updatedNotes = EditorGUILayout.TextArea(cachedChangelogNotes, GUILayout.MinHeight(ChangelogTextAreaHeight));
+            if (EditorGUI.EndChangeCheck())
+            {
+                cachedChangelogNotes = updatedNotes;
+                pendingChangelogSave = true;
+                lastChangelogEditTime = EditorApplication.timeSinceStartup;
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Save Changelog"))
+                {
+                    FlushPendingChangelogSave();
+                }
+
+                if (GUILayout.Button("Reload Changelog"))
+                {
+                    pendingChangelogSave = false;
+                    LoadCachedChangelogForVersion(version, forceReload: true);
+                }
+            }
+
+            if (pendingChangelogSave && string.Equals(cachedChangelogVersion, version, System.StringComparison.Ordinal))
+            {
+                EditorGUILayout.HelpBox("Changelog changes will be saved automatically after a short idle.", MessageType.Info);
+            }
+        }
+
+        private static void LoadCachedChangelogForVersion(string version, bool forceReload)
+        {
+            if (!forceReload &&
+                string.Equals(cachedChangelogVersion, version, System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            EasyItchPushChangelog.EnsureVersionSectionExists(version);
+            cachedChangelogVersion = version;
+            cachedChangelogNotes = EasyItchPushChangelog.GetVersionNotes(version);
         }
     }
 }

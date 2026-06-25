@@ -25,9 +25,11 @@ In Unity open `Window > Package Manager > + > Add package from git URL...` and p
 - Builds all enabled Unity Build Profiles in one run.
 - Switches build targets automatically between profiles.
 - Writes the configured game version into Player Settings and matching Build Profile settings.
+- Saves version changes immediately from the plugin UI so they stay synchronized with the project.
 - Creates versioned zip archives per platform after each successful build.
 - Creates `Assets/CHANGELOG.md` automatically if the project does not have one yet.
 - Uses `Assets/CHANGELOG.md` as the single changelog source and cuts the matching version section into each generated build `CHANGELOG.md`.
+- Lets you edit the current version changelog directly in the Easy Itch Push window.
 - Validates build outputs before upload, including archive version consistency and HTML5 archive structure.
 - Pushes release or test builds to itch.io through Butler.
 - Logs all plugin activity to the Unity Console and to daily log files.

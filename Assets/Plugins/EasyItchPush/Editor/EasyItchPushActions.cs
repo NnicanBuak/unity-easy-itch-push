@@ -272,6 +272,7 @@ namespace EasyItchPush.Editor
             var settings = EasyItchPushSettings.Instance;
             EasyItchPushChangelog.EnsureProjectChangelogExists();
             EasyItchPushSettingsGui.FlushPendingSave(settings);
+            EasyItchPushSettingsGui.FlushPendingChangelogSave();
             EasyItchPushSettingsGui.EnsureSettingsAreSynchronized(settings);
             return settings;
         }

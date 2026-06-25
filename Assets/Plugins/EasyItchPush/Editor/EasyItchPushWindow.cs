@@ -29,6 +29,7 @@ namespace EasyItchPush.Editor
         private void OnDisable()
         {
             EasyItchPushSettingsGui.FlushPendingSave(EasyItchPushSettings.Instance);
+            EasyItchPushSettingsGui.FlushPendingChangelogSave();
         }
 
         private void OnGUI()
@@ -106,6 +107,7 @@ namespace EasyItchPush.Editor
         private static void RunDelayed(Action action)
         {
             EasyItchPushSettingsGui.FlushPendingSave(EasyItchPushSettings.Instance);
+            EasyItchPushSettingsGui.FlushPendingChangelogSave();
             EditorApplication.delayCall += () =>
             {
                 try

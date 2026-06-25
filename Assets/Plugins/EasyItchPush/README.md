@@ -34,11 +34,13 @@ Local Unity Editor plugin for building the project and publishing builds to itch
 ## Versioning
 - The plugin writes the selected version to `PlayerSettings.bundleVersion`.
 - Version edits in the plugin window also update Unity 6 `Build Profiles` automatically.
+- Version edits are saved immediately so the configured version does not lag behind Player Settings.
 - Android version code uses `Major * 10000 + Minor * 100 + Patch + HotfixNumber`.
 - Butler uploads use the same version through `--userversion`.
 - On install, Easy Itch Push creates `Assets/CHANGELOG.md` automatically if it does not exist yet.
 - Every successful profile build creates a versioned zip archive in the platform folder, for example `Builds/windows/LD59-Windows-v1.0.0.zip`.
 - `Assets/CHANGELOG.md` is the only changelog source. Keep all versions there as `## v<version>` sections.
+- The plugin window includes a changelog editor for the current version and writes that text back into the matching section in `Assets/CHANGELOG.md`.
 - Every generated build gets its own `CHANGELOG.md` containing only the current version section cut from `Assets/CHANGELOG.md`.
 - During `butler push`, Easy Itch Push uploads the original versioned archive so the itch download name preserves the full release or hotfix version.
 

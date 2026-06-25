@@ -21,7 +21,11 @@ namespace EasyItchPush.Editor
                     "push"
                 },
                 activateHandler = (_, __) => EasyItchPushSettingsGui.EnsureSettingsAreSynchronized(EasyItchPushSettings.Instance),
-                deactivateHandler = () => EasyItchPushSettingsGui.FlushPendingSave(EasyItchPushSettings.Instance),
+                deactivateHandler = () =>
+                {
+                    EasyItchPushSettingsGui.FlushPendingSave(EasyItchPushSettings.Instance);
+                    EasyItchPushSettingsGui.FlushPendingChangelogSave();
+                },
                 guiHandler = _ =>
                 {
                     var settings = EasyItchPushSettings.Instance;
