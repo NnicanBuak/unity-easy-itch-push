@@ -1723,6 +1723,7 @@ namespace EasyItchPush.Editor
 
         private sealed class McpBuildIsolationScope : IDisposable
         {
+            private const int MCP_STOP_ASYNC_TIMEOUT_MS = 1000;
             private const string MCP_AUTO_START_ON_LOAD_KEY = "MCPForUnity.AutoStartOnLoad";
             private const string MCP_RESUME_HTTP_AFTER_RELOAD_KEY = "MCPForUnity.ResumeHttpAfterReload";
             private const string MCP_RESUME_STDIO_AFTER_RELOAD_KEY = "MCPForUnity.ResumeStdioAfterReload";
@@ -1795,10 +1796,14 @@ namespace EasyItchPush.Editor
                     var transportManagerProperty = serviceLocatorType?.GetProperty("TransportManager", BindingFlags.Public | BindingFlags.Static);
                     var transportManager = transportManagerProperty?.GetValue(null);
 
-                    StopTransportManagerAsync(transportManager);
-                    ForceStopTransport(transportManager, "Http");
-                    ForceStopTransport(transportManager, "Stdio");
+                    var httpForceStopped = ForceStopTransport(transportManager, "Http");
+                    var stdioForceStopped = ForceStopTransport(transportManager, "Stdio");
                     StopLegacyStdioBridge();
+                    if (!httpForceStopped || !stdioForceStopped)
+                    {
+                        StopTransportManagerAsync(transportManager);
+                    }
+
                     DisableMcpReloadResume();
                 }
                 catch (Exception ex)
@@ -1810,21 +1815,88 @@ namespace EasyItchPush.Editor
             private static void StopTransportManagerAsync(object transportManager)
             {
                 var stopAsyncMethod = transportManager?.GetType().GetMethod("StopAsync", BindingFlags.Public | BindingFlags.Instance);
-                var stopTask = stopAsyncMethod?.Invoke(transportManager, new object[] { null }) as Task;
-                stopTask?.GetAwaiter().GetResult();
-            }
-
-            private static void ForceStopTransport(object transportManager, string modeName)
-            {
-                var transportModeType = Type.GetType(MCP_TRANSPORT_MODE_TYPE);
-                if (transportManager == null || transportModeType == null)
+                if (stopAsyncMethod == null)
                 {
                     return;
                 }
 
-                var mode = Enum.Parse(transportModeType, modeName);
-                var forceStopMethod = transportManager.GetType().GetMethod("ForceStop", BindingFlags.Public | BindingFlags.Instance);
-                forceStopMethod?.Invoke(transportManager, new[] { mode });
+                using (var cancellation = new CancellationTokenSource())
+                {
+                    var arguments = BuildStopAsyncArguments(stopAsyncMethod, cancellation.Token);
+                    if (arguments == null)
+                    {
+                        EasyItchPushLog.Warning("MCP For Unity transport StopAsync has an unsupported signature; skipping graceful stop.");
+                        return;
+                    }
+
+                    cancellation.CancelAfter(MCP_STOP_ASYNC_TIMEOUT_MS);
+                    var stopTask = stopAsyncMethod.Invoke(transportManager, arguments) as Task;
+                    if (stopTask == null)
+                    {
+                        return;
+                    }
+
+                    if (!stopTask.Wait(MCP_STOP_ASYNC_TIMEOUT_MS))
+                    {
+                        EasyItchPushLog.Warning(
+                            "MCP For Unity transport StopAsync did not finish before build; continuing to avoid blocking the Unity editor.");
+                        return;
+                    }
+
+                    stopTask.GetAwaiter().GetResult();
+                }
+            }
+
+            private static object[] BuildStopAsyncArguments(MethodInfo stopAsyncMethod, CancellationToken cancellationToken)
+            {
+                var parameters = stopAsyncMethod.GetParameters();
+                if (parameters.Length == 0)
+                {
+                    return Array.Empty<object>();
+                }
+
+                if (parameters.Length == 1)
+                {
+                    var parameterType = parameters[0].ParameterType;
+                    if (parameterType == typeof(CancellationToken))
+                    {
+                        return new object[] { cancellationToken };
+                    }
+
+                    if (!parameterType.IsValueType || Nullable.GetUnderlyingType(parameterType) != null)
+                    {
+                        return new object[] { null };
+                    }
+                }
+
+                return null;
+            }
+
+            private static bool ForceStopTransport(object transportManager, string modeName)
+            {
+                try
+                {
+                    var transportModeType = Type.GetType(MCP_TRANSPORT_MODE_TYPE);
+                    if (transportManager == null || transportModeType == null)
+                    {
+                        return false;
+                    }
+
+                    var mode = Enum.Parse(transportModeType, modeName);
+                    var forceStopMethod = transportManager.GetType().GetMethod("ForceStop", BindingFlags.Public | BindingFlags.Instance);
+                    if (forceStopMethod == null)
+                    {
+                        return false;
+                    }
+
+                    forceStopMethod.Invoke(transportManager, new[] { mode });
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    EasyItchPushLog.Warning($"Could not force-stop MCP For Unity {modeName} transport: {GetReflectionMessage(ex)}");
+                    return false;
+                }
             }
 
             private static void StopLegacyStdioBridge()
