@@ -518,6 +518,7 @@ namespace EasyItchPush.Editor
             }
 
             pendingSave = false;
+            settings.SaveSettings();
             settings.SyncVersionToPlayerSettings();
             settings.SaveSettings();
         }
@@ -569,6 +570,7 @@ namespace EasyItchPush.Editor
         private static void PersistVersionChange(EasyItchPushSettings settings)
         {
             FlushPendingChangelogSave();
+            settings.SaveSettings();
             settings.SyncVersionToPlayerSettings();
             settings.SaveSettings();
             EasyItchPushChangelog.EnsureVersionSectionExists(settings.ResolvedVersion);

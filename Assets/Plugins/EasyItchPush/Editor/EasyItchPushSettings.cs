@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build.Profile;
 using UnityEngine;
@@ -104,6 +105,16 @@ namespace EasyItchPush.Editor
         private const string PrivateTestGameSlugKey = EditorPrefsKeyPrefix + "test.gameSlug";
         private const string PrivateTestProjectIdKey = EditorPrefsKeyPrefix + "test.projectId";
         private const string PrivateButlerExecutablePathKey = EditorPrefsKeyPrefix + "butlerExecutablePath";
+        private const long MaxRecoveryFileBytes = 8L * 1024L * 1024L;
+        private static readonly Regex RecoveryBundleVersionRegex = new Regex(
+            @"(?im)^\s*(?:m_)?(?:bundleVersion|applicationVersion|playerVersion):\s*[""']?(?<version>[^""'\r\n#]+)",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex RecoveryVersionMajorRegex = new Regex(@"(?im)^\s*versionMajor:\s*(?<value>\d+)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex RecoveryVersionMinorRegex = new Regex(@"(?im)^\s*versionMinor:\s*(?<value>\d+)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex RecoveryVersionPatchRegex = new Regex(@"(?im)^\s*versionPatch:\s*(?<value>\d+)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex RecoveryVersionIsHotfixRegex = new Regex(@"(?im)^\s*versionIsHotfix:\s*(?<value>true|false|0|1)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly Regex RecoveryVersionHotfixNumberRegex = new Regex(@"(?im)^\s*versionHotfixNumber:\s*(?<value>\d+)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        private static readonly HashSet<string> BuildProfilesWithoutVersionOverridesLogged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         [SerializeField, HideInInspector] private string itchUsername = string.Empty;
         [SerializeField, HideInInspector] private string gameSlug = string.Empty;
@@ -226,6 +237,7 @@ namespace EasyItchPush.Editor
         {
             MigrateLegacyPrivateSettings();
             EnsureVersionInitialized();
+            RestoreVersionFromUnityRecoveryIfNeeded();
 
             var pluginVersion = CurrentVersion;
             var pluginVersionText = pluginVersion.ToStringWithoutPrefix();
@@ -257,10 +269,10 @@ namespace EasyItchPush.Editor
 
             if (pluginMatchesSnapshot && hasPlayerVersion && !playerMatchesSnapshot)
             {
-                SetVersion(playerVersion);
-                MarkVersionAsSynchronized(playerVersion);
+                SyncVersionToPlayerSettings();
                 Save(true);
-                EasyItchPushLog.Info($"Loaded version from PlayerSettings: {playerVersionText}");
+                EasyItchPushLog.Info(
+                    $"Restored PlayerSettings version from Easy Itch Push settings after mismatch: {pluginVersionText}");
                 return;
             }
 
@@ -621,9 +633,12 @@ namespace EasyItchPush.Editor
             var version = CurrentVersion;
             var versionText = version.ToStringWithoutPrefix();
             var versionCode = version.ToVersionCode();
+            var playerSettingsChanged = !string.Equals(PlayerSettings.bundleVersion, versionText, StringComparison.Ordinal) ||
+                                        PlayerSettings.Android.bundleVersionCode != versionCode;
 
             PlayerSettings.bundleVersion = versionText;
             PlayerSettings.Android.bundleVersionCode = versionCode;
+            SaveProjectSettingsIfChanged(playerSettingsChanged);
             SyncGameAnalyticsBuildVersion(version);
             MarkVersionAsSynchronized(version);
 
@@ -677,10 +692,7 @@ namespace EasyItchPush.Editor
                 }
                 else
                 {
-                    EasyItchPushLog.Warning(
-                        $"Build Profile '{profile.name}' did not expose serialized bundleVersion/androidBundleVersionCode overrides. " +
-                        "The global PlayerSettings version was still synchronized. If this profile uses its own Player Settings, " +
-                        "open the profile once and check that version override fields exist in the Build Profile asset.");
+                    LogMissingBuildProfileVersionOverridesOnce(profile, profileAsset.Path);
                 }
             }
 
@@ -693,6 +705,19 @@ namespace EasyItchPush.Editor
 #else
             return 0;
 #endif
+        }
+
+        private static void LogMissingBuildProfileVersionOverridesOnce(BuildProfile profile, string profilePath)
+        {
+            var key = string.IsNullOrWhiteSpace(profilePath) ? profile.name : profilePath;
+            if (!BuildProfilesWithoutVersionOverridesLogged.Add(key))
+            {
+                return;
+            }
+
+            EasyItchPushLog.Info(
+                $"Build Profile '{profile.name}' does not expose serialized version override fields. " +
+                "Easy Itch Push synchronized the global PlayerSettings version instead.");
         }
 
 #if UNITY_6000_0_OR_NEWER
@@ -1004,6 +1029,286 @@ namespace EasyItchPush.Editor
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(settingsAsset);
             AssetDatabase.SaveAssetIfDirty(settingsAsset);
+        }
+
+        private static void SaveProjectSettingsIfChanged(bool hasChanges)
+        {
+            if (!hasChanges)
+            {
+                return;
+            }
+
+            AssetDatabase.SaveAssets();
+            if (!EditorApplication.ExecuteMenuItem("File/Save Project"))
+            {
+                EasyItchPushLog.Warning(
+                    "Could not execute File > Save Project after updating PlayerSettings. " +
+                    "Unity may keep ProjectSettings.asset unsaved until the project is saved manually.");
+            }
+        }
+
+        private void RestoreVersionFromUnityRecoveryIfNeeded()
+        {
+            if (!TryFindUnityRecoveryVersion(out var recoveryVersion, out var sourcePath, out var sourceWriteTimeUtc))
+            {
+                return;
+            }
+
+            var currentVersion = CurrentVersion;
+            if (CompareVersions(recoveryVersion, currentVersion) <= 0 &&
+                !IsRecoveryNewerThanSavedProjectSettings(sourceWriteTimeUtc))
+            {
+                return;
+            }
+
+            SetVersion(recoveryVersion);
+            Save(true);
+            SyncVersionToPlayerSettings();
+            Save(true);
+            EasyItchPushLog.Warning(
+                $"Recovered version {recoveryVersion.ToStringWithoutPrefix()} from Unity recovery file: {sourcePath}");
+        }
+
+        private static bool TryFindUnityRecoveryVersion(
+            out BuildVersion version,
+            out string sourcePath,
+            out DateTime sourceWriteTimeUtc)
+        {
+            version = default(BuildVersion);
+            sourcePath = string.Empty;
+            sourceWriteTimeUtc = DateTime.MinValue;
+
+            var found = false;
+            foreach (var root in GetUnityRecoveryDirectories())
+            {
+                if (!Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                IEnumerable<string> files;
+                try
+                {
+                    files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories);
+                }
+                catch (Exception ex)
+                {
+                    EasyItchPushLog.Warning($"Could not scan Unity recovery directory '{root}': {ex.Message}");
+                    continue;
+                }
+
+                foreach (var file in files)
+                {
+                    if (!TryReadRecoveryVersion(file, out var candidate, out var writeTimeUtc))
+                    {
+                        continue;
+                    }
+
+                    if (!found ||
+                        writeTimeUtc > sourceWriteTimeUtc ||
+                        (writeTimeUtc == sourceWriteTimeUtc && CompareVersions(candidate, version) > 0))
+                    {
+                        version = candidate;
+                        sourcePath = file;
+                        sourceWriteTimeUtc = writeTimeUtc;
+                        found = true;
+                    }
+                }
+            }
+
+            return found;
+        }
+
+        private static IEnumerable<string> GetUnityRecoveryDirectories()
+        {
+            var projectRoot = GetProjectRootDirectory();
+            if (string.IsNullOrEmpty(projectRoot))
+            {
+                yield break;
+            }
+
+            yield return Path.Combine(projectRoot, "Assets", "_Recovery");
+            yield return Path.Combine(projectRoot, "_Recovery");
+            yield return Path.Combine(projectRoot, "Temp", "_Recovery");
+            yield return Path.Combine(projectRoot, "Temp", "_Backupscenes");
+            yield return Path.Combine(projectRoot, "Temp", "__Backupscenes");
+        }
+
+        private static bool TryReadRecoveryVersion(string filePath, out BuildVersion version, out DateTime writeTimeUtc)
+        {
+            version = default(BuildVersion);
+            writeTimeUtc = DateTime.MinValue;
+
+            try
+            {
+                var fileInfo = new FileInfo(filePath);
+                if (!fileInfo.Exists ||
+                    fileInfo.Length <= 0 ||
+                    fileInfo.Length > MaxRecoveryFileBytes ||
+                    !IsLikelyUnityRecoveryTextFile(fileInfo))
+                {
+                    return false;
+                }
+
+                var text = File.ReadAllText(fileInfo.FullName);
+                if (!TryExtractRecoveryVersion(text, out version))
+                {
+                    return false;
+                }
+
+                writeTimeUtc = fileInfo.LastWriteTimeUtc;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                EasyItchPushLog.Warning($"Could not read Unity recovery file '{filePath}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool TryExtractRecoveryVersion(string text, out BuildVersion version)
+        {
+            version = default(BuildVersion);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            var bundleVersionMatch = RecoveryBundleVersionRegex.Match(text);
+            if (bundleVersionMatch.Success &&
+                BuildVersion.TryParse(bundleVersionMatch.Groups["version"].Value.Trim(), out version))
+            {
+                return true;
+            }
+
+            if (!TryMatchInt(RecoveryVersionMajorRegex, text, out var major) ||
+                !TryMatchInt(RecoveryVersionMinorRegex, text, out var minor) ||
+                !TryMatchInt(RecoveryVersionPatchRegex, text, out var patch))
+            {
+                return false;
+            }
+
+            var isHotfix = TryMatchBool(RecoveryVersionIsHotfixRegex, text, out var parsedIsHotfix) && parsedIsHotfix;
+            var hotfixNumber = TryMatchInt(RecoveryVersionHotfixNumberRegex, text, out var parsedHotfixNumber)
+                ? parsedHotfixNumber
+                : 1;
+
+            version = new BuildVersion(major, minor, patch, isHotfix, hotfixNumber);
+            return true;
+        }
+
+        private static bool IsLikelyUnityRecoveryTextFile(FileInfo fileInfo)
+        {
+            var extension = fileInfo.Extension;
+            return string.IsNullOrEmpty(extension) ||
+                   string.Equals(extension, ".asset", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".unity", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".backup", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".yaml", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".yml", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsRecoveryNewerThanSavedProjectSettings(DateTime recoveryWriteTimeUtc)
+        {
+            var projectRoot = GetProjectRootDirectory();
+            if (string.IsNullOrEmpty(projectRoot))
+            {
+                return false;
+            }
+
+            var latestSavedSettingsWriteTimeUtc = DateTime.MinValue;
+            AccumulateWriteTime(Path.Combine(projectRoot, "ProjectSettings", "EasyItchPushSettings.asset"), ref latestSavedSettingsWriteTimeUtc);
+            AccumulateWriteTime(Path.Combine(projectRoot, "ProjectSettings", "ProjectSettings.asset"), ref latestSavedSettingsWriteTimeUtc);
+            return latestSavedSettingsWriteTimeUtc != DateTime.MinValue &&
+                   recoveryWriteTimeUtc > latestSavedSettingsWriteTimeUtc;
+        }
+
+        private static void AccumulateWriteTime(string filePath, ref DateTime latestWriteTimeUtc)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    return;
+                }
+
+                var writeTimeUtc = File.GetLastWriteTimeUtc(filePath);
+                if (writeTimeUtc > latestWriteTimeUtc)
+                {
+                    latestWriteTimeUtc = writeTimeUtc;
+                }
+            }
+            catch (Exception ex)
+            {
+                EasyItchPushLog.Warning($"Could not read timestamp for '{filePath}': {ex.Message}");
+            }
+        }
+
+        private static bool TryMatchInt(Regex regex, string text, out int value)
+        {
+            value = 0;
+            var match = regex.Match(text);
+            return match.Success && int.TryParse(match.Groups["value"].Value, out value);
+        }
+
+        private static bool TryMatchBool(Regex regex, string text, out bool value)
+        {
+            value = false;
+            var match = regex.Match(text);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            var rawValue = match.Groups["value"].Value;
+            if (string.Equals(rawValue, "1", StringComparison.OrdinalIgnoreCase))
+            {
+                value = true;
+                return true;
+            }
+
+            if (string.Equals(rawValue, "0", StringComparison.OrdinalIgnoreCase))
+            {
+                value = false;
+                return true;
+            }
+
+            return bool.TryParse(rawValue, out value);
+        }
+
+        private static int CompareVersions(BuildVersion left, BuildVersion right)
+        {
+            var major = left.Major.CompareTo(right.Major);
+            if (major != 0)
+            {
+                return major;
+            }
+
+            var minor = left.Minor.CompareTo(right.Minor);
+            if (minor != 0)
+            {
+                return minor;
+            }
+
+            var patch = left.Patch.CompareTo(right.Patch);
+            if (patch != 0)
+            {
+                return patch;
+            }
+
+            if (left.IsHotfix != right.IsHotfix)
+            {
+                return left.IsHotfix ? 1 : -1;
+            }
+
+            return left.HotfixNumber.CompareTo(right.HotfixNumber);
+        }
+
+        private static string GetProjectRootDirectory()
+        {
+            return string.IsNullOrEmpty(Application.dataPath)
+                ? string.Empty
+                : Path.GetDirectoryName(Application.dataPath);
         }
 
         public void EnsureVersionInitialized()
