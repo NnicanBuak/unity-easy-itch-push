@@ -2,6 +2,7 @@
     "name": "EasyItchPush.UnityLinuxIl2CppCompat.Editor",
     "rootNamespace": "",
     "references": [
+        "Unity.SysrootPackage.Editor",
         "Unity.Sysroot.Linux_x86_64",
         "Unity.Toolchain.Win-x86_64-Linux"
     ],

@@ -1,3 +1,7 @@
+## v1.0.4
+
+- Fixed the Unity Linux IL2CPP compatibility assembly references so the x64 sysroot/toolchain providers compile in PackageCache.
+
 ## v1.0.3
 
 - Added a Unity 6 Windows-to-Linux IL2CPP compatibility provider so BuildProgram can find Linux x64 sysroot/toolchain packages.
