@@ -1,3 +1,9 @@
+## v1.0.2
+
+- Removed Easy Itch Push Player Settings overrides during builds.
+- Unity Build Profiles now remain the source of truth for platform settings such as scripting backend, managed stripping, and Strip Engine Code.
+- Removed the Release Obfuscation, Force IL2CPP, and Managed Stripping plugin settings.
+
 ## v1.0.0
 
 - Added light interruptions after hull impacts. / Р”РѕР±Р°РІРёР»Рё РїРµСЂРµР±РѕРё СЃРІРµС‚Р° РїРѕСЃР»Рµ СѓРґР°СЂРѕРІ РѕР± РєРѕСЂРїСѓСЃ.
