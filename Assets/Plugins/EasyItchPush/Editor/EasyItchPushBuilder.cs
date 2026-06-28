@@ -46,6 +46,9 @@ namespace EasyItchPush.Editor
         private const string WindowsLinuxToolchainPackageName = "com.unity.toolchain.win-x86_64-linux";
         private const string LinuxSysrootTypeName = "UnityEditor.Il2Cpp.SysrootLinuxX86_64";
         private const string WindowsLinuxToolchainTypeName = "UnityEditor.Il2Cpp.ToolchainWindowsX86_64";
+        private const string LinuxPlatformName = "linux";
+        private const string WindowsPlatformName = "windows";
+        private const string LinuxBuildProgramTargetArch = "x64";
 
         private sealed class ProfileBuildJob
         {
@@ -573,7 +576,29 @@ namespace EasyItchPush.Editor
                 return false;
             }
 
-            EasyItchPushLog.Info($"Linux IL2CPP support is ready: sysroot={sysrootPath}, toolchain={toolchainPath}");
+            if (!TryFindLinuxBuildProgramProvider(
+                    requireWindowsHostToolchain: false,
+                    out var buildProgramSysrootPath,
+                    out var buildProgramSysrootProvider,
+                    out issue))
+            {
+                return false;
+            }
+
+            if (!TryFindLinuxBuildProgramProvider(
+                    requireWindowsHostToolchain: true,
+                    out var buildProgramToolchainPath,
+                    out var buildProgramToolchainProvider,
+                    out issue))
+            {
+                return false;
+            }
+
+            EasyItchPushLog.Info(
+                "Linux IL2CPP support is ready: " +
+                $"sysroot={sysrootPath}, toolchain={toolchainPath}, " +
+                $"buildProgramSysroot={buildProgramSysrootProvider}:{buildProgramSysrootPath}, " +
+                $"buildProgramToolchain={buildProgramToolchainProvider}:{buildProgramToolchainPath}");
             return true;
         }
 
@@ -655,6 +680,140 @@ namespace EasyItchPush.Editor
 
             result = method.Invoke(instance, null) as string ?? string.Empty;
             return true;
+        }
+
+        private static bool TryGetStringPropertyResult(object instance, Type type, string propertyName, out string result)
+        {
+            result = string.Empty;
+            if (instance == null || type == null)
+            {
+                return false;
+            }
+
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var property = type.GetProperty(propertyName, flags);
+            if (property == null || property.PropertyType != typeof(string) || property.GetIndexParameters().Length != 0)
+            {
+                return false;
+            }
+
+            result = property.GetValue(instance) as string ?? string.Empty;
+            return true;
+        }
+
+        private static bool TryFindLinuxBuildProgramProvider(
+            bool requireWindowsHostToolchain,
+            out string providerPath,
+            out string providerName,
+            out string issue)
+        {
+            providerPath = string.Empty;
+            providerName = string.Empty;
+            issue = string.Empty;
+
+            var pathMethod = requireWindowsHostToolchain ? "GetToolchainPath" : "GetSysrootPath";
+            foreach (var type in GetLoadableTypes())
+            {
+                if (type == null ||
+                    type.IsAbstract ||
+                    type.GetConstructor(Type.EmptyTypes) == null ||
+                    !string.Equals(type.Namespace, "UnityEditor.Il2Cpp", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!TryCreateInstance(type, out var instance))
+                {
+                    continue;
+                }
+
+                if (!TryGetStringPropertyResult(instance, type, "TargetPlatform", out var targetPlatform) ||
+                    !string.Equals(targetPlatform, LinuxPlatformName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryGetStringPropertyResult(instance, type, "TargetArch", out var targetArch) ||
+                    !string.Equals(targetArch, LinuxBuildProgramTargetArch, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (requireWindowsHostToolchain)
+                {
+                    if (!TryGetStringPropertyResult(instance, type, "HostPlatform", out var hostPlatform) ||
+                        !string.Equals(hostPlatform, WindowsPlatformName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                if (!TryGetStringMethodResult(instance, type, pathMethod, out var path) ||
+                    string.IsNullOrWhiteSpace(path) ||
+                    !Directory.Exists(path))
+                {
+                    continue;
+                }
+
+                providerPath = path;
+                providerName = type.FullName;
+                return true;
+            }
+
+            var providerKind = requireWindowsHostToolchain ? "Windows-hosted Linux toolchain" : "Linux sysroot";
+            issue =
+                $"{providerKind} for Unity BuildProgram target arch '{LinuxBuildProgramTargetArch}' was not found. " +
+                $"Unity 6 BuildProgram looks for Linux {LinuxBuildProgramTargetArch}, while the installed Unity packages may advertise x86_64 or omit TargetArch. " +
+                "Reimport or update Easy Itch Push so its Unity 6 Linux IL2CPP compatibility assembly is compiled.";
+            return false;
+        }
+
+        private static IEnumerable<Type> GetLoadableTypes()
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (var type in types)
+                {
+                    if (type != null)
+                    {
+                        yield return type;
+                    }
+                }
+            }
+        }
+
+        private static bool TryCreateInstance(Type type, out object instance)
+        {
+            instance = null;
+            if (type == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                instance = Activator.CreateInstance(type);
+                return instance != null;
+            }
+            catch
+            {
+                instance = null;
+                return false;
+            }
         }
 
         private static bool TryEnsurePayloadInstalled(

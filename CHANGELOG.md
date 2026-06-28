@@ -1,3 +1,8 @@
+## v1.0.3
+
+- Added a Unity 6 Windows-to-Linux IL2CPP compatibility provider so BuildProgram can find Linux x64 sysroot/toolchain packages.
+- Hardened Linux IL2CPP preflight to fail early when Unity cannot see BuildProgram-compatible Linux x64 providers.
+
 ## v1.0.2
 
 - Removed Easy Itch Push Player Settings overrides during builds.

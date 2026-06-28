@@ -1,0 +1,33 @@
+{
+    "name": "EasyItchPush.UnityLinuxIl2CppCompat.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Unity.Sysroot.Linux_x86_64",
+        "Unity.Toolchain.Win-x86_64-Linux"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "EIP_HAS_UNITY_LINUX_SYSROOT",
+        "EIP_HAS_UNITY_WIN_LINUX_TOOLCHAIN"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.sdk.linux-x86_64",
+            "expression": "[1.1.0,1.2.0)",
+            "define": "EIP_HAS_UNITY_LINUX_SYSROOT"
+        },
+        {
+            "name": "com.unity.toolchain.win-x86_64-linux",
+            "expression": "[1.1.0,1.2.0)",
+            "define": "EIP_HAS_UNITY_WIN_LINUX_TOOLCHAIN"
+        }
+    ],
+    "noEngineReferences": false
+}
