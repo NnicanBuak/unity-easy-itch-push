@@ -1,3 +1,7 @@
+## v1.0.5
+
+- Removed the ineffective third-party Linux IL2CPP compatibility provider and changed Linux IL2CPP preflight to fail early with the Unity toolchain metadata mismatch.
+
 ## v1.0.4
 
 - Fixed the Unity Linux IL2CPP compatibility assembly references so the x64 sysroot/toolchain providers compile in PackageCache.

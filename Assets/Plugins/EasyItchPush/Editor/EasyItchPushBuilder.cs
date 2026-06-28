@@ -763,8 +763,8 @@ namespace EasyItchPush.Editor
             var providerKind = requireWindowsHostToolchain ? "Windows-hosted Linux toolchain" : "Linux sysroot";
             issue =
                 $"{providerKind} for Unity BuildProgram target arch '{LinuxBuildProgramTargetArch}' was not found. " +
-                $"Unity 6 BuildProgram looks for Linux {LinuxBuildProgramTargetArch}, while the installed Unity packages may advertise x86_64 or omit TargetArch. " +
-                "Reimport or update Easy Itch Push so its Unity 6 Linux IL2CPP compatibility assembly is compiled.";
+                $"Unity 6 BuildProgram looks for Linux {LinuxBuildProgramTargetArch}, while the installed Unity packages advertise x86_64 or omit TargetArch. " +
+                "This is a Unity Linux IL2CPP toolchain metadata mismatch; switch the Linux Build Profile to Mono or use a Unity/toolchain package version that advertises Linux x64 to BuildProgram.";
             return false;
         }
 
