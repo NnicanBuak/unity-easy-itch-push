@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -12,6 +13,13 @@ namespace EasyItchPush.Editor
             public bool ValidationPassed;
             public bool Succeeded;
             public int PushedCount;
+        }
+
+        private sealed class ExistingChangelogUpdateResult
+        {
+            public int UpdatedArchiveCount;
+            public int UpdatedBuildDirectoryCount;
+            public readonly List<string> Issues = new List<string>();
         }
 
         [MenuItem("Tools/Easy Itch Push/Build All Profiles", priority = 0)]
@@ -59,6 +67,11 @@ namespace EasyItchPush.Editor
 
             EasyItchPushLog.Info($"Starting Push Existing Builds ({modeLabel})");
 
+            if (!TryUpdateExistingBuildChangelogs(settings, pushMode, showDialog: false, out _))
+            {
+                return;
+            }
+
             var publishResult = new PublishPipelineResult();
             if (EasyItchPushPushValidator.TryCollectExistingBuilds(settings, pushMode, out var artifacts))
             {
@@ -67,6 +80,13 @@ namespace EasyItchPush.Editor
             }
 
             ShowPushExistingResult(settings, pushMode, publishResult);
+        }
+
+        [MenuItem("Tools/Easy Itch Push/Update Existing Build Changelogs", priority = 3)]
+        public static void UpdateExistingBuildChangelogs()
+        {
+            var settings = GetPreparedSettings();
+            TryUpdateExistingBuildChangelogs(settings, settings.PushMode, showDialog: true, out _);
         }
 
         [MenuItem("Tools/Easy Itch Push/Install or Upgrade Butler", priority = 20)]
@@ -190,6 +210,98 @@ namespace EasyItchPush.Editor
             return true;
         }
 
+        private static bool TryUpdateExistingBuildChangelogs(
+            EasyItchPushSettings settings,
+            EasyItchPushMode pushMode,
+            bool showDialog,
+            out ExistingChangelogUpdateResult result)
+        {
+            result = new ExistingChangelogUpdateResult();
+            settings.AutoSyncVersionWithPlayerSettings();
+            settings.SyncProfileMappingsWithBuildProfiles();
+
+            if (!EasyItchPushChangelog.TryGetVersionChangelogMarkdown(
+                    settings.ResolvedVersion,
+                    out _,
+                    out var changelogErrorMessage))
+            {
+                result.Issues.Add(changelogErrorMessage);
+                ShowExistingChangelogUpdateFailed(settings, pushMode, result);
+                return false;
+            }
+
+            var profiles = EasyItchPushBuildProfiles.FindAllProfileAssets();
+            var updatedArchives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var updatedBuildDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var enabledProfileCount = 0;
+
+            foreach (var profile in profiles)
+            {
+                if (profile == null || string.IsNullOrWhiteSpace(profile.Name))
+                {
+                    continue;
+                }
+
+                if (!settings.IsProfileEnabledNoSync(pushMode, profile.Name))
+                {
+                    continue;
+                }
+
+                enabledProfileCount++;
+                var baseChannel = settings.GetChannelForProfileNoSync(profile.Name);
+                var archivePath = EasyItchPushBuilder.FindArchiveForProfileVersion(settings, baseChannel, profile.Name);
+                if (string.IsNullOrEmpty(archivePath))
+                {
+                    result.Issues.Add(
+                        $"{profile.Name} ({baseChannel}): no zip archive found for {settings.ResolvedVersionWithPrefix} in {settings.GetBuildDirectory(baseChannel)}.");
+                    continue;
+                }
+
+                try
+                {
+                    if (updatedArchives.Add(archivePath))
+                    {
+                        EasyItchPushChangelog.WriteVersionChangelogToArchive(archivePath, settings.ResolvedVersion);
+                        result.UpdatedArchiveCount++;
+                        EasyItchPushLog.Info($"Updated archive changelog: {archivePath}");
+                    }
+
+                    var latestBuildDirectory = settings.GetLatestBuildDirectory(baseChannel);
+                    if (Directory.Exists(latestBuildDirectory) && updatedBuildDirectories.Add(latestBuildDirectory))
+                    {
+                        EasyItchPushChangelog.WriteVersionChangelogToBuildDirectory(latestBuildDirectory, settings.ResolvedVersion);
+                        result.UpdatedBuildDirectoryCount++;
+                        EasyItchPushLog.Info($"Updated build directory changelog: {latestBuildDirectory}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Issues.Add($"{profile.Name} ({baseChannel}): {ex.Message}");
+                }
+            }
+
+            if (enabledProfileCount == 0)
+            {
+                result.Issues.Add("No enabled Unity Build Profiles were found.");
+            }
+
+            if (result.Issues.Count > 0)
+            {
+                ShowExistingChangelogUpdateFailed(settings, pushMode, result);
+                return false;
+            }
+
+            EasyItchPushLog.Info(
+                $"Updated changelogs for {result.UpdatedArchiveCount} archive(s) and {result.UpdatedBuildDirectoryCount} build folder(s) ({settings.GetPushModeLabel(pushMode)} {settings.ResolvedVersionWithPrefix}).");
+
+            if (showDialog)
+            {
+                ShowExistingChangelogUpdateSucceeded(settings, pushMode, result);
+            }
+
+            return true;
+        }
+
         private static void ShowBuildAllResult(EasyItchPushBuildAllResult result, string title, PublishPipelineResult publishResult)
         {
             var succeeded = result.Results.FindAll(item => item.Succeeded).Count;
@@ -263,6 +375,63 @@ namespace EasyItchPush.Editor
 
             EditorUtility.DisplayDialog(
                 succeeded ? $"Push Existing ({modeLabel}) succeeded" : $"Push Existing ({modeLabel}) finished with errors",
+                string.Join("\n", lines),
+                "OK");
+        }
+
+        private static void ShowExistingChangelogUpdateSucceeded(
+            EasyItchPushSettings settings,
+            EasyItchPushMode pushMode,
+            ExistingChangelogUpdateResult result)
+        {
+            var lines = new List<string>
+            {
+                $"Mode: {settings.GetPushModeLabel(pushMode)}",
+                $"Version: {settings.ResolvedVersionWithPrefix}",
+                $"Updated archives: {result.UpdatedArchiveCount}",
+                $"Updated latest build folders: {result.UpdatedBuildDirectoryCount}",
+                string.Empty,
+                "Log file:",
+                EasyItchPushLog.CurrentLogPath
+            };
+
+            EditorUtility.DisplayDialog(
+                "Existing build changelogs updated",
+                string.Join("\n", lines),
+                "OK");
+        }
+
+        private static void ShowExistingChangelogUpdateFailed(
+            EasyItchPushSettings settings,
+            EasyItchPushMode pushMode,
+            ExistingChangelogUpdateResult result)
+        {
+            var lines = new List<string>
+            {
+                $"Could not update existing {settings.GetPushModeLabel(pushMode)} build changelogs for {settings.ResolvedVersionWithPrefix}:",
+                string.Empty
+            };
+
+            for (var i = 0; i < result.Issues.Count && i < 12; i++)
+            {
+                lines.Add("- " + result.Issues[i]);
+            }
+
+            if (result.Issues.Count > 12)
+            {
+                lines.Add($"- ...and {result.Issues.Count - 12} more issue(s). See log file for details.");
+            }
+
+            lines.Add(string.Empty);
+            lines.Add("Log file:");
+            lines.Add(EasyItchPushLog.CurrentLogPath);
+
+            EasyItchPushLog.Error(
+                $"Existing build changelog update failed ({settings.GetPushModeLabel(pushMode)} {settings.ResolvedVersionWithPrefix}):\n" +
+                string.Join("\n", result.Issues));
+
+            EditorUtility.DisplayDialog(
+                "Existing build changelog update failed",
                 string.Join("\n", lines),
                 "OK");
         }

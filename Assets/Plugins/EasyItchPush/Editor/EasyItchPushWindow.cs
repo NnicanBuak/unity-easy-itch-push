@@ -74,6 +74,11 @@ namespace EasyItchPush.Editor
                 }
             }
 
+            if (GUILayout.Button("Update Existing Build Changelogs", GUILayout.Height(28f)))
+            {
+                RunDelayed(EasyItchPushActions.UpdateExistingBuildChangelogs);
+            }
+
             if (GUILayout.Button("Open Build Folder", GUILayout.Height(28f)))
             {
                 RunDelayed(EasyItchPushActions.OpenBuildFolder);

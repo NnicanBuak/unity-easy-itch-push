@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using UnityEditor;
 
@@ -137,6 +138,27 @@ namespace EasyItchPush.Editor
             File.WriteAllText(changelogPath, changelogMarkdown, Utf8WithoutBom);
         }
 
+        public static void WriteVersionChangelogToArchive(string archivePath, string expectedVersion)
+        {
+            if (!File.Exists(archivePath))
+            {
+                throw new FileNotFoundException("Build archive was not found.", archivePath);
+            }
+
+            var changelogMarkdown = GetVersionChangelogMarkdownOrThrow(expectedVersion);
+            using (var archive = ZipFile.Open(archivePath, ZipArchiveMode.Update))
+            {
+                DeleteExistingChangelogEntries(archive);
+
+                var changelogEntry = archive.CreateEntry(BuildChangelogFileName, CompressionLevel.Optimal);
+                using (var changelogStream = changelogEntry.Open())
+                using (var changelogWriter = new StreamWriter(changelogStream, Utf8WithoutBom))
+                {
+                    changelogWriter.Write(changelogMarkdown);
+                }
+            }
+        }
+
         public static bool IsBuildChangelogFile(string buildDirectory, string filePath)
         {
             var expectedPath = GetBuildChangelogPath(buildDirectory);
@@ -168,6 +190,20 @@ namespace EasyItchPush.Editor
         private static string GetBuildChangelogPath(string buildDirectory)
         {
             return Path.Combine(Path.GetFullPath(buildDirectory), BuildChangelogFileName);
+        }
+
+        private static void DeleteExistingChangelogEntries(ZipArchive archive)
+        {
+            for (var i = archive.Entries.Count - 1; i >= 0; i--)
+            {
+                var entry = archive.Entries[i];
+                if (!string.Equals(entry.FullName, BuildChangelogFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                entry.Delete();
+            }
         }
 
         private static bool TryExtractVersionSection(string changelogText, string expectedVersion, out string versionSection)

@@ -30,6 +30,7 @@ In Unity open `Window > Package Manager > + > Add package from git URL...` and p
 - Creates `Assets/CHANGELOG.md` automatically if the project does not have one yet.
 - Uses `Assets/CHANGELOG.md` as the single changelog source and cuts the matching version section into each generated build `CHANGELOG.md`.
 - Lets you edit the current version changelog directly in the Easy Itch Push window.
+- Can inject the current version changelog into already built current-version archives without rebuilding.
 - Validates build outputs before upload, including archive version consistency and HTML5 archive structure.
 - Pushes release or test builds to itch.io through Butler.
 - Logs all plugin activity to the Unity Console and to daily log files.
@@ -101,7 +102,8 @@ This helps preserve build diagnostics even when Unity clears console output duri
 
 1. Run `Build All Profiles`.
 2. Check the generated archives.
-3. Run `Push Existing`.
+3. If you edit the changelog after building, run `Update Existing Build Changelogs`.
+4. Run `Push Existing`.
 
 ### Full Automation
 

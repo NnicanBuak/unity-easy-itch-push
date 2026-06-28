@@ -42,6 +42,7 @@ Local Unity Editor plugin for building the project and publishing builds to itch
 - `Assets/CHANGELOG.md` is the only changelog source. Keep all versions there as `## v<version>` sections.
 - The plugin window includes a changelog editor for the current version and writes that text back into the matching section in `Assets/CHANGELOG.md`.
 - Every generated build gets its own `CHANGELOG.md` containing only the current version section cut from `Assets/CHANGELOG.md`.
+- `Update Existing Build Changelogs` injects the current version changelog into already built current-version archives and matching `latest` build folders without rebuilding.
 - During `butler push`, Easy Itch Push uploads the original versioned archive so the itch download name preserves the full release or hotfix version.
 
 ## Release Obfuscation
@@ -63,7 +64,7 @@ Local Unity Editor plugin for building the project and publishing builds to itch
 - File logs are ignored by git and survive Unity Console clears during build target/profile switches.
 
 ## Use
-- Manual review path: run `Build All Profiles`, check the generated archives, then run `Push Existing Builds`.
+- Manual review path: run `Build All Profiles`, check the generated archives, optionally run `Update Existing Build Changelogs` after changelog edits, then run `Push Existing Builds`.
 - Full automation path: run `Build All Profiles and Push`.
 - `Build All Profiles and Push` uses the currently selected `Release` or `Test` mode, always builds all profiles as **release** builds, validates every generated zip archive, then uploads all matching remote itch channels.
-- `Push Existing Builds` uses the currently selected mode and reuses existing local zip archives without rebuilding.
+- `Push Existing Builds` uses the currently selected mode, updates changelogs in existing current-version archives, and reuses those local zip archives without rebuilding.
