@@ -45,11 +45,10 @@ Local Unity Editor plugin for building the project and publishing builds to itch
 - `Update Existing Build Changelogs` injects the current version changelog into already built current-version archives and matching `latest` build folders without rebuilding.
 - During `butler push`, Easy Itch Push uploads the original versioned archive so the itch download name preserves the full release or hotfix version.
 
-## Release Obfuscation
-- Release builds disable development/debug options before building.
-- IL2CPP is forced where the selected platform supports it.
-- Managed stripping and Strip Engine Code are applied before release builds.
-- Use a dedicated obfuscator asset if you need stronger managed symbol renaming beyond Unity IL2CPP/stripping.
+## Release Builds
+- `Build All Profiles and Push` disables development/debug build options before building.
+- Platform Player Settings such as scripting backend, managed stripping, and Strip Engine Code come from each Unity Build Profile.
+- The plugin does not override platform-specific Player Settings during builds.
 
 ## Push Validation
 - Push commands are blocked until `Username`, `Game Slug`, `Project ID`, channel, and version are filled.

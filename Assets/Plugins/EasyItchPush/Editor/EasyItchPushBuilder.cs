@@ -41,10 +41,6 @@ namespace EasyItchPush.Editor
     {
         private const int FileOperationRetryCount = 20;
         private const int FileOperationRetryDelayMs = 250;
-        // Build Profiles should be the source of truth by default.
-        // Set a bool field/property named ApplyReleasePlayerSettingsOverrides=true in
-        // EasyItchPushSettings if you intentionally want the old global PlayerSettings override behaviour.
-        private const bool DefaultApplyReleasePlayerSettingsOverrides = false;
 
         private const string LinuxSysrootPackageName = "com.unity.sdk.linux-x86_64";
         private const string WindowsLinuxToolchainPackageName = "com.unity.toolchain.win-x86_64-linux";
@@ -886,63 +882,6 @@ namespace EasyItchPush.Editor
             EditorUtility.DisplayDialog("Easy Itch Push Build preflight failed", message.ToString(), "OK");
         }
 
-        private static bool ShouldApplyReleasePlayerSettingsOverrides(EasyItchPushSettings settings)
-        {
-            // Backwards-compatible opt-in without requiring a Settings class/UI migration immediately.
-            // Supported names if you add them to EasyItchPushSettings later:
-            //   ApplyReleasePlayerSettingsOverrides == true  -> use old override behaviour.
-            //   UseBuildProfilePlayerSettings == true        -> use Build Profile settings as-is.
-            if (TryGetBoolSetting(settings, "ApplyReleasePlayerSettingsOverrides", out var applyOverrides))
-            {
-                return applyOverrides;
-            }
-
-            if (TryGetBoolSetting(settings, "applyReleasePlayerSettingsOverrides", out applyOverrides))
-            {
-                return applyOverrides;
-            }
-
-            if (TryGetBoolSetting(settings, "UseBuildProfilePlayerSettings", out var useBuildProfileSettings))
-            {
-                return !useBuildProfileSettings;
-            }
-
-            if (TryGetBoolSetting(settings, "useBuildProfilePlayerSettings", out useBuildProfileSettings))
-            {
-                return !useBuildProfileSettings;
-            }
-
-            return DefaultApplyReleasePlayerSettingsOverrides;
-        }
-
-        private static bool TryGetBoolSetting(EasyItchPushSettings settings, string memberName, out bool value)
-        {
-            value = false;
-            if (settings == null || string.IsNullOrWhiteSpace(memberName))
-            {
-                return false;
-            }
-
-            var type = settings.GetType();
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            var property = type.GetProperty(memberName, flags);
-            if (property != null && property.PropertyType == typeof(bool) && property.GetIndexParameters().Length == 0)
-            {
-                value = (bool)property.GetValue(settings);
-                return true;
-            }
-
-            var field = type.GetField(memberName, flags);
-            if (field != null && field.FieldType == typeof(bool))
-            {
-                value = (bool)field.GetValue(settings);
-                return true;
-            }
-
-            return false;
-        }
-
         private static void LogCurrentScriptingBackend(ProfileBuildJob job)
         {
             try
@@ -996,20 +935,8 @@ namespace EasyItchPush.Editor
                     return result;
                 }
 
-                // Build Profiles own their platform-specific Player Settings. After activating each profile,
-                // write only the version into the currently active profile/player settings. Do not override backend,
-                // stripping, or other per-profile settings here.
                 settings.SyncVersionToActivePlayerSettingsOnly();
-
-                if (ShouldApplyReleasePlayerSettingsOverrides(settings))
-                {
-                    EasyItchPushLog.Info($"Applying Easy Itch Push PlayerSettings overrides for {job.ProfileName} ({job.BuildTarget}).");
-                    settings.ApplyReleasePlayerSettings(job.BuildTarget);
-                }
-                else
-                {
-                    EasyItchPushLog.Info($"Using Unity Build Profile PlayerSettings for {job.ProfileName} ({job.BuildTarget}); Easy Itch Push overrides are disabled.");
-                }
+                EasyItchPushLog.Info($"Using Unity Build Profile PlayerSettings for {job.ProfileName} ({job.BuildTarget}).");
 
                 if (HasScriptCompilationFailures())
                 {

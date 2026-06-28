@@ -94,20 +94,6 @@ namespace EasyItchPush.Editor
             settings.detailedBuildReport = EditorGUILayout.Toggle("Detailed Build Report", settings.detailedBuildReport);
             settings.cleanBuildDirectory = EditorGUILayout.Toggle("Clean Build Directory", settings.cleanBuildDirectory);
             settings.compressWithLz4HC = EditorGUILayout.Toggle("LZ4HC Compression", settings.compressWithLz4HC);
-            settings.applyReleaseObfuscation = EditorGUILayout.Toggle("Release Obfuscation", settings.applyReleaseObfuscation);
-            using (new EditorGUI.DisabledScope(!settings.applyReleaseObfuscation))
-            {
-                settings.forceIl2CppForRelease = EditorGUILayout.Toggle("Force IL2CPP", settings.forceIl2CppForRelease);
-                settings.releaseManagedStrippingLevel =
-                    (ManagedStrippingLevel)EditorGUILayout.EnumPopup("Managed Stripping", settings.releaseManagedStrippingLevel);
-            }
-
-            if (settings.applyReleaseObfuscation)
-            {
-                EditorGUILayout.HelpBox(
-                    "Release Obfuscation applies Unity release hardening without mutating settings: forces release build options, enables IL2CPP for targets with safe per-target backend overrides, and applies high managed stripping plus Strip Engine Code. Desktop standalone profiles keep their own backend to avoid Windows/Linux/macOS cross-profile leakage.",
-                    MessageType.Info);
-            }
 
             EditorGUILayout.Space(8f);
             didReorderProfiles = DrawProfileMappings(settings);

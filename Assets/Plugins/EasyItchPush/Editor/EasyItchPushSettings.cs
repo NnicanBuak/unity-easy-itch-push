@@ -138,9 +138,6 @@ namespace EasyItchPush.Editor
         public bool detailedBuildReport = true;
         public bool cleanBuildDirectory = true;
         public bool compressWithLz4HC;
-        public bool applyReleaseObfuscation = true;
-        public bool forceIl2CppForRelease = true;
-        public ManagedStrippingLevel releaseManagedStrippingLevel = ManagedStrippingLevel.High;
 
         public bool openGamePageOnSuccess;
         public bool playSoundOnComplete;
@@ -907,81 +904,6 @@ namespace EasyItchPush.Editor
         }
 #endif
 
-        public void ApplyReleasePlayerSettings(BuildTarget target)
-        {
-            var targetGroup = BuildPipeline.GetBuildTargetGroup(target);
-            var namedTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-
-            try
-            {
-                var scriptingBackendLabel = "Build Profile";
-
-                if (RequiresMonoFallbackForMacOsBuild(target))
-                {
-                    PlayerSettings.SetScriptingBackend(namedTarget, ScriptingImplementation.Mono2x);
-                    scriptingBackendLabel = "Mono";
-                    EasyItchPushLog.Warning(
-                        "macOS build profile is running on a non-macOS editor. The build will be compiled with Mono because IL2CPP requires a macOS host.");
-                }
-                else if (forceIl2CppForRelease && SupportsIl2Cpp(target))
-                {
-                    if (UsesSharedStandaloneScriptingBackend(target))
-                    {
-                        EasyItchPushLog.Info(
-                            $"Skipped forcing IL2CPP for {target}. Desktop standalone targets share one scripting backend, so Easy Itch Push keeps the Build Profile backend to avoid leaking IL2CPP into other standalone profiles.");
-                    }
-                    else
-                    {
-                        PlayerSettings.SetScriptingBackend(namedTarget, ScriptingImplementation.IL2CPP);
-                        scriptingBackendLabel = "IL2CPP";
-                    }
-                }
-
-                if (!applyReleaseObfuscation)
-                {
-                    EasyItchPushLog.Info($"Applied release scripting backend for {target}: backend={scriptingBackendLabel}");
-                    return;
-                }
-
-                PlayerSettings.SetManagedStrippingLevel(namedTarget, releaseManagedStrippingLevel);
-                PlayerSettings.stripEngineCode = true;
-                EasyItchPushLog.Info(
-                    $"Applied release protection for {target}: backend={scriptingBackendLabel}, stripping={releaseManagedStrippingLevel}, stripEngineCode=true");
-            }
-            catch (Exception ex)
-            {
-                EasyItchPushLog.Warning($"Could not apply all release protection settings for {target}: {ex.Message}");
-            }
-        }
-
-        private static bool RequiresMonoFallbackForMacOsBuild(BuildTarget target)
-        {
-            return target == BuildTarget.StandaloneOSX
-                && Application.platform != RuntimePlatform.OSXEditor;
-        }
-
-        private static bool UsesSharedStandaloneScriptingBackend(BuildTarget target)
-        {
-            return BuildPipeline.GetBuildTargetGroup(target) == BuildTargetGroup.Standalone;
-        }
-
-        private static bool SupportsIl2Cpp(BuildTarget target)
-        {
-            switch (target)
-            {
-                case BuildTarget.WebGL:
-                case BuildTarget.StandaloneWindows:
-                case BuildTarget.StandaloneWindows64:
-                case BuildTarget.StandaloneLinux64:
-                case BuildTarget.StandaloneOSX:
-                case BuildTarget.Android:
-                case BuildTarget.iOS:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
         private static void SyncGameAnalyticsBuildVersion(BuildVersion version)
         {
             var settingsAsset = AssetDatabase.LoadMainAssetAtPath(GameAnalyticsSettingsAssetPath);
@@ -1410,7 +1332,7 @@ namespace EasyItchPush.Editor
         public BuildOptions GetBuildOptions(bool forceRelease = false)
         {
             var options = BuildOptions.None;
-            var shouldUseReleaseDefaults = forceRelease || applyReleaseObfuscation;
+            var shouldUseReleaseDefaults = forceRelease;
             var useDevelopmentBuild = shouldUseReleaseDefaults ? false : developmentBuild;
             var useAllowDebugging = shouldUseReleaseDefaults ? false : allowDebugging;
             var useStrictMode = shouldUseReleaseDefaults || strictMode;
