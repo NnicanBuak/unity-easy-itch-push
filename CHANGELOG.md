@@ -1,3 +1,8 @@
+## v1.0.6
+
+- Removed Easy Itch Push Linux IL2CPP sysroot/toolchain probing so Unity Build Profiles use the same toolchain discovery path as manual builds.
+- In Unity 6, Build Profiles are now activated before any fallback active build target switch.
+
 ## v1.0.5
 
 - Removed the ineffective third-party Linux IL2CPP compatibility provider and changed Linux IL2CPP preflight to fail early with the Unity toolchain metadata mismatch.
