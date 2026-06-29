@@ -8,8 +8,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build;
 using UnityEditor.Build.Profile;
 using UnityEditor.Build.Reporting;
@@ -81,19 +79,23 @@ namespace EasyItchPush.Editor
 
             public readonly bool Succeeded;
 
-            private readonly AddressableAssetSettings _settings;
-            private readonly AddressableAssetSettings.PlayerBuildOption? _originalBuildWithPlayerBuild;
+            private readonly object _settings;
+            private readonly object _originalBuildWithPlayerBuild;
+            private readonly PropertyInfo _buildWithPlayerBuildProperty;
             private readonly bool _shouldRestore;
 
             public AddressablesPlayerBuildScope(
                 bool succeeded,
-                AddressableAssetSettings settings,
-                AddressableAssetSettings.PlayerBuildOption? originalBuildWithPlayerBuild,
+                object settings,
+                object originalBuildWithPlayerBuild,
                 bool shouldRestore)
             {
                 Succeeded = succeeded;
                 _settings = settings;
                 _originalBuildWithPlayerBuild = originalBuildWithPlayerBuild;
+                _buildWithPlayerBuildProperty = settings?.GetType().GetProperty(
+                    "BuildAddressablesWithPlayerBuild",
+                    BindingFlags.Instance | BindingFlags.Public);
                 _shouldRestore = shouldRestore;
             }
 
@@ -101,12 +103,13 @@ namespace EasyItchPush.Editor
             {
                 if (!_shouldRestore ||
                     _settings == null ||
-                    !_originalBuildWithPlayerBuild.HasValue)
+                    _originalBuildWithPlayerBuild == null ||
+                    _buildWithPlayerBuildProperty == null)
                 {
                     return;
                 }
 
-                _settings.BuildAddressablesWithPlayerBuild = _originalBuildWithPlayerBuild.Value;
+                _buildWithPlayerBuildProperty.SetValue(_settings, _originalBuildWithPlayerBuild);
             }
         }
 
@@ -595,24 +598,52 @@ namespace EasyItchPush.Editor
 
         private static AddressablesPlayerBuildScope PrepareAddressablesForPlayerBuild(ProfileBuildJob job)
         {
+            var addressableSettingsType = Type.GetType(
+                "UnityEditor.AddressableAssets.Settings.AddressableAssetSettings, Unity.Addressables.Editor");
+            var defaultObjectType = Type.GetType(
+                "UnityEditor.AddressableAssets.Settings.AddressableAssetSettingsDefaultObject, Unity.Addressables.Editor");
+
+            if (addressableSettingsType == null || defaultObjectType == null)
+            {
+                EasyItchPushLog.Info(
+                    $"Addressables package is not installed; skipping Addressables content build for {job.ProfileName}.");
+                return AddressablesPlayerBuildScope.SucceededWithoutChanges;
+            }
+
             // Localization depends on Addressables. If Addressables content is stale or was built for a
             // previous active target, WebGL will boot but fail to load StreamingAssets/aa/settings.json.
-            var addressableSettings = AddressableAssetSettingsDefaultObject.Settings;
+            var settingsProperty = defaultObjectType.GetProperty(
+                "Settings",
+                BindingFlags.Public | BindingFlags.Static);
+            var addressableSettings = settingsProperty?.GetValue(null);
             if (addressableSettings == null)
             {
                 EasyItchPushLog.Info($"No Addressables settings asset found; skipping Addressables content build for {job.ProfileName}.");
                 return AddressablesPlayerBuildScope.SucceededWithoutChanges;
             }
 
-            var originalBuildWithPlayerBuild = addressableSettings.BuildAddressablesWithPlayerBuild;
+            var buildWithPlayerBuildProperty = addressableSettingsType.GetProperty(
+                "BuildAddressablesWithPlayerBuild",
+                BindingFlags.Instance | BindingFlags.Public);
+            var originalBuildWithPlayerBuild = buildWithPlayerBuildProperty?.GetValue(addressableSettings);
 
             try
             {
                 EasyItchPushLog.Info($"Cleaning Addressables player content for {job.ProfileName} ({job.BuildTarget}) before player build.");
-                AddressableAssetSettings.CleanPlayerContent();
+                addressableSettingsType.InvokeMember(
+                    "CleanPlayerContent",
+                    BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    null,
+                    null);
 
                 EasyItchPushLog.Info($"Building Addressables content for {job.ProfileName} ({job.BuildTarget}) before player build.");
-                AddressableAssetSettings.BuildPlayerContent();
+                addressableSettingsType.InvokeMember(
+                    "BuildPlayerContent",
+                    BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    null,
+                    null);
 
                 EasyItchPushLog.Info($"Addressables content built for {job.ProfileName} ({job.BuildTarget}).");
                 var shouldRestore = DisableAddressablesBuildWithPlayerBuild(addressableSettings, job);
@@ -635,15 +666,32 @@ namespace EasyItchPush.Editor
             }
         }
 
-        private static bool DisableAddressablesBuildWithPlayerBuild(AddressableAssetSettings addressableSettings, ProfileBuildJob job)
+        private static bool DisableAddressablesBuildWithPlayerBuild(object addressableSettings, ProfileBuildJob job)
         {
-            if (addressableSettings == null ||
-                addressableSettings.BuildAddressablesWithPlayerBuild == AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer)
+            if (addressableSettings == null)
             {
                 return false;
             }
 
-            addressableSettings.BuildAddressablesWithPlayerBuild = AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer;
+            var settingsType = addressableSettings.GetType();
+            var buildWithPlayerBuildProperty = settingsType.GetProperty(
+                "BuildAddressablesWithPlayerBuild",
+                BindingFlags.Instance | BindingFlags.Public);
+            if (buildWithPlayerBuildProperty == null)
+            {
+                return false;
+            }
+
+            var currentValue = buildWithPlayerBuildProperty.GetValue(addressableSettings);
+            var playerBuildOptionType = buildWithPlayerBuildProperty.PropertyType;
+            var doNotBuildWithPlayer = Enum.Parse(playerBuildOptionType, "DoNotBuildWithPlayer");
+
+            if (Equals(currentValue, doNotBuildWithPlayer))
+            {
+                return false;
+            }
+
+            buildWithPlayerBuildProperty.SetValue(addressableSettings, doNotBuildWithPlayer);
             EasyItchPushLog.Info(
                 $"Addressables content was built explicitly for {job.ProfileName}; " +
                 "temporarily disabled Build With Player to avoid a duplicate Unity Build Profile pre-build.");

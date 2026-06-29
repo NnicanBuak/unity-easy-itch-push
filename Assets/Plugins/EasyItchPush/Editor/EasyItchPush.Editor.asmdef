@@ -1,9 +1,7 @@
 ﻿{
     "name": "EasyItchPush.Editor",
     "rootNamespace": "EasyItchPush.Editor",
-    "references": [
-        "Unity.Addressables.Editor"
-    ],
+    "references": [],
     "includePlatforms": [
         "Editor"
     ],
