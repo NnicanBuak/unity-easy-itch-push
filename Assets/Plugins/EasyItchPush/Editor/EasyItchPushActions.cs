@@ -49,6 +49,7 @@ namespace EasyItchPush.Editor
             {
                 publishResult.ValidationPassed = true;
                 publishResult.Succeeded = PushArtifacts(settings, pushMode, artifacts, out publishResult.PushedCount);
+                SaveReleaseHistory(settings, pushMode, artifacts, publishResult);
             }
 
             ShowBuildAllResult(result, $"Build All Profiles ({modeLabel})", publishResult);
@@ -116,6 +117,7 @@ namespace EasyItchPush.Editor
             {
                 publishResult.ValidationPassed = true;
                 publishResult.Succeeded = PushArtifacts(settings, pushMode, artifacts, out publishResult.PushedCount);
+                SaveReleaseHistory(settings, pushMode, artifacts, publishResult);
             }
 
             ShowPushExistingResult(settings, pushMode, publishResult);
@@ -205,6 +207,25 @@ namespace EasyItchPush.Editor
             }
 
             return true;
+        }
+
+        private static void SaveReleaseHistory(
+            EasyItchPushSettings settings,
+            EasyItchPushMode mode,
+            List<EasyItchPushPushArtifact> artifacts,
+            PublishPipelineResult result)
+        {
+            try
+            {
+                EasyItchPushReleaseHistory.Record(settings, mode, artifacts,
+                    result.PushedCount, result.Succeeded);
+            }
+            catch (Exception ex)
+            {
+                // Publication already took place: history disk errors must not
+                // misreport a successful itch.io push as a deployment failure.
+                EasyItchPushLog.Error("Release published but history could not be saved: " + ex.Message);
+            }
         }
 
         private static bool PushArtifacts(
