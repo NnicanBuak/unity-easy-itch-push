@@ -56,6 +56,9 @@ namespace EasyItchPush.Editor
 
         private static EasyItchPushBuildAllResult BuildAllWithCloud(EasyItchPushSettings settings, bool forceRelease)
         {
+            // GitHub runs against a commit, never the unsaved local Editor state.
+            EasyItchPushSettingsGui.FlushPendingChangelogSave();
+            EasyItchPushSettingsGui.FlushPendingSave(settings);
             settings.AutoSyncVersionWithPlayerSettings();
             settings.SyncProfileMappingsWithBuildProfiles();
             var all = new EasyItchPushBuildAllResult();
