@@ -251,7 +251,7 @@ namespace EasyItchPush.Editor
                 {
                     EditorGUILayout.LabelField("Latest publication", EditorStyles.boldLabel);
                     if (GUILayout.Button("History", GUILayout.Width(74)))
-                        selectedTab = 2;
+                        selectedTab = 1;
                 }
                 var recent = EasyItchPushReleaseHistory.Latest;
                 if (recent == null)
