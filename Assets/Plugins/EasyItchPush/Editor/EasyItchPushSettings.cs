@@ -112,7 +112,6 @@ namespace EasyItchPush.Editor
         private const string PrivateTestGameSlugKey = EditorPrefsKeyPrefix + "test.gameSlug";
         private const string PrivateTestProjectIdKey = EditorPrefsKeyPrefix + "test.projectId";
         private const string PrivateButlerExecutablePathKey = EditorPrefsKeyPrefix + "butlerExecutablePath";
-        private const string PrivateGitHubTokenKey = EditorPrefsKeyPrefix + "githubToken";
         private const long MaxRecoveryFileBytes = 8L * 1024L * 1024L;
         private static readonly Regex RecoveryBundleVersionRegex = new Regex(
             @"(?im)^\s*(?:m_)?(?:bundleVersion|applicationVersion|playerVersion):\s*[""']?(?<version>[^""'\r\n#]+)",
@@ -143,13 +142,6 @@ namespace EasyItchPush.Editor
         public string githubRepository = string.Empty;
         public string githubBranch = "main";
         public string githubWorkflow = "easy-itch-push-macos.yml";
-        public string githubProjectPath = ".";
-
-        public string GitHubToken
-        {
-            get => EditorPrefs.GetString(PrivateGitHubTokenKey, string.Empty);
-            set => EditorPrefs.SetString(PrivateGitHubTokenKey, value?.Trim() ?? string.Empty);
-        }
 
         public bool HasCloudBuilds(EasyItchPushMode mode)
         {
