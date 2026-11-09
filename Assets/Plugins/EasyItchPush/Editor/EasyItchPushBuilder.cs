@@ -11,6 +11,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Profile;
 using UnityEditor.Build.Reporting;
+using UnityEngine;
 
 namespace EasyItchPush.Editor
 {
@@ -1051,15 +1052,28 @@ namespace EasyItchPush.Editor
             {
                 EasyItchPushChangelog.WriteVersionChangelogToBuildDirectory(sourceDirectory, settings.ResolvedVersion);
 
-                using (var zip = ZipFile.Open(tempArchivePath, ZipArchiveMode.Create))
+                if (Application.platform == RuntimePlatform.OSXEditor &&
+                    Directory.GetDirectories(sourceDirectory, "*.app", SearchOption.TopDirectoryOnly).Length > 0)
                 {
-                    foreach (var file in files)
+                    // macOS .app bundles need executable bits and symlinks, which
+                    // System.IO.Compression does not preserve reliably.
+                    var result = EasyItchPushProcess.Run("/usr/bin/zip",
+                        "-qry -y " + EasyItchPushProcess.Quote(tempArchivePath) + " .",
+                        sourceDirectory, "Archiving macOS application");
+                    if (!result.Succeeded)
+                        throw new IOException("macOS ZIP creation failed: " + result.Error);
+                }
+                else
+                {
+                    using (var zip = ZipFile.Open(tempArchivePath, ZipArchiveMode.Create))
                     {
-                        var entryName = Path.GetRelativePath(sourceDirectory, file).Replace('\\', '/');
-                        zip.CreateEntryFromFile(file, entryName, CompressionLevel.Optimal);
+                        foreach (var file in files)
+                        {
+                            var entryName = Path.GetRelativePath(sourceDirectory, file).Replace('\\', '/');
+                            zip.CreateEntryFromFile(file, entryName, CompressionLevel.Optimal);
+                        }
+                        AddChangelogToArchive(zip, settings.ResolvedVersion);
                     }
-
-                    AddChangelogToArchive(zip, settings.ResolvedVersion);
                 }
 
                 if (File.Exists(archivePath))
