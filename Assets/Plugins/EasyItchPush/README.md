@@ -4,21 +4,32 @@
   <img src="Documentation~/images/logo.svg" alt="Easy Itch Push logo" width="160">
 </p>
 
-Local Unity Editor plugin for building the project and publishing builds to itch.io with Butler.
+Unity Editor plugin for local and GitHub Actions builds, changelogs and itch.io publishing.
 
 ## Install
 - Unity Package Manager: `https://github.com/NnicanBuak/unity-easy-itch-push.git`
 - In Unity open `Window > Package Manager > + > Add package from git URL...` and paste that URL.
 
-## Screenshot
+## Interface layout preview
 
-![Easy Itch Push window](Documentation~/images/window-screenshot.png)
+![Illustrative four-tab editor layout](Documentation~/images/window-preview.svg)
+
+*Layout illustration for the draft PR, not a real Unity screenshot.*
+
+## New editor layout
+
+- **Publish:** destination, version, enabled platforms and build/publish actions.
+- **Changelog:** a dedicated release-note editor for the current version.
+- **History:** the date, status, uploaded channels and changelog snapshot of every recorded publication, including partial pushes.
+- **Settings:** itch.io destinations, platform build location and channels, GitHub Actions and advanced options.
+
+The publication log is saved in `ProjectSettings/EasyItchPushReleaseHistory.json` and survives Unity restarts. Previous itch.io publications are not imported automatically.
 
 ## Setup
 - Open `Project Settings > Easy Itch Push`.
-- Choose a `Push Mode` at the top: `Release` or `Test`.
-- Set required publishing fields for both targets: `Release Username/Game Slug/Project ID`, `Test Username/Game Slug/Project ID`, and version fields.
-- Click `Ensure Windows/Web Profiles`.
+- Choose **Release** or **Test** in the Publish tab.
+- Configure destination accounts in Settings, set the current version in Publish, and edit notes in Changelog.
+- Configure platform profiles and local/cloud build targets in Settings.
 - Click `Tools > Easy Itch Push > Install or Upgrade Butler`.
 - Click `Tools > Easy Itch Push > Login to itch.io`.
 
