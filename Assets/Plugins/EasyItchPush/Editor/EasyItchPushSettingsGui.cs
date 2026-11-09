@@ -43,7 +43,7 @@ namespace EasyItchPush.Editor
         private static string historySearch = string.Empty;
         private static int historyFilterMode;
         private static int historyPageSize = 20;
-        private static readonly string[] Tabs = { "Publish", "History", "Settings" };
+        private static readonly string[] Tabs = { "Publish", "Changelog", "History", "Settings" };
 
         public static bool Draw(EasyItchPushSettings settings, DrawOptions options)
         {
@@ -63,9 +63,12 @@ namespace EasyItchPush.Editor
                     DrawPublishTab(settings, options);
                     break;
                 case 1:
-                    DrawHistoryTab();
+                    DrawChangelogTab(settings);
                     break;
                 case 2:
+                    DrawHistoryTab();
+                    break;
+                case 3:
                     reordered = DrawSettingsTab(settings);
                     break;
             }
@@ -125,7 +128,7 @@ namespace EasyItchPush.Editor
                     {
                         EditorGUILayout.LabelField("Build profiles", EditorStyles.boldLabel);
                         if (GUILayout.Button("Configure", GUILayout.Width(92)))
-                            selectedTab = 2;
+                            selectedTab = 3;
                     }
                     var count = 0;
                     foreach (var mapping in settings.profileChannelMappings ?? System.Array.Empty<EasyItchPushProfileMapping>())
@@ -174,6 +177,24 @@ namespace EasyItchPush.Editor
             using (new EditorGUILayout.VerticalScope(wide ? GUILayout.Width(340) : GUILayout.ExpandWidth(true)))
             {
                 DrawVersionPanel(settings);
+
+                EditorGUILayout.Space(8);
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.LabelField("Release notes", EditorStyles.boldLabel);
+                        if (GUILayout.Button("Edit", GUILayout.Width(72)))
+                            selectedTab = 1;
+                    }
+                    LoadCachedChangelogForVersion(settings.ResolvedVersion, false);
+                    var notes = cachedChangelogNotes ?? string.Empty;
+                    notes = notes.Trim();
+                    if (notes.Length > 220)
+                        notes = notes.Substring(0, 220).TrimEnd() + "...";
+                    EditorGUILayout.LabelField(string.IsNullOrEmpty(notes) ? "No release notes yet." : notes,
+                        EditorStyles.wordWrappedMiniLabel, GUILayout.MinHeight(36));
+                }
 
                 EditorGUILayout.Space(8);
                 DrawLatestReleaseSummary(settings);
@@ -237,9 +258,6 @@ namespace EasyItchPush.Editor
                 var didVersionChange = DidVersionChange(versionBeforeEdit, settings.CurrentVersion);
                 if (didVersionChange)
                     PersistVersionChange(settings);
-
-                EditorGUILayout.Space(10);
-                DrawCurrentVersionChangelog(settings, false);
             }
         }
 
@@ -251,7 +269,7 @@ namespace EasyItchPush.Editor
                 {
                     EditorGUILayout.LabelField("Latest publication", EditorStyles.boldLabel);
                     if (GUILayout.Button("History", GUILayout.Width(74)))
-                        selectedTab = 1;
+                        selectedTab = 2;
                 }
                 var recent = EasyItchPushReleaseHistory.Latest;
                 if (recent == null)
@@ -266,6 +284,28 @@ namespace EasyItchPush.Editor
                 EditorGUILayout.LabelField(recent.completed ? "Published to all channels" :
                         "Partial upload: " + recent.publishedCount + "/" + recent.expectedCount,
                     EditorStyles.wordWrappedMiniLabel);
+            }
+        }
+
+        private static void DrawChangelogTab(EasyItchPushSettings settings)
+        {
+            DrawHeading("Release notes", "Edit the changelog for " + settings.ResolvedVersionWithPrefix +
+                ". Previous published notes are preserved in History.");
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                DrawCurrentVersionChangelog(settings, false);
+            }
+            EditorGUILayout.Space(8);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Back to Publish", GUILayout.Width(145)))
+                {
+                    FlushPendingChangelogSave();
+                    selectedTab = 0;
+                }
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Open CHANGELOG.md", GUILayout.Width(160)))
+                    EditorUtility.RevealInFinder(EasyItchPushChangelog.ProjectChangelogAssetPath);
             }
         }
 
@@ -800,14 +840,9 @@ namespace EasyItchPush.Editor
             var version = settings.ResolvedVersion;
             LoadCachedChangelogForVersion(version, forceReload: didVersionChange);
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField("Changelog", EditorStyles.boldLabel);
-                if (GUILayout.Button("Open file", GUILayout.Width(82)))
-                    EditorUtility.RevealInFinder(EasyItchPushChangelog.ProjectChangelogAssetPath);
-            }
+            EditorGUILayout.LabelField("Changelog", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                $"Editing notes for v{version}. Changes are stored in Assets/CHANGELOG.md.",
+                $"Edits update the `## v{version}` section in Assets/CHANGELOG.md.",
                 MessageType.None);
 
             EditorGUI.BeginChangeCheck();
