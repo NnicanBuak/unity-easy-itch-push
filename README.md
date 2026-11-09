@@ -20,9 +20,20 @@ In Unity open `Window > Package Manager > + > Add package from git URL...` and p
 
 ![Unity Easy Itch Push window](Assets/Plugins/EasyItchPush/Documentation~/images/window-screenshot.png)
 
-## New: macOS IL2CPP via GitHub Actions
+## Redesigned Unity UI and release history
 
-The Unity window now separates **Publish**, **Platforms**, and **Settings** instead of presenting one long settings sheet. For a macOS Build Profile, choose **GitHub Actions (macOS)** under Platforms; Windows and WebGL can continue building locally.
+The plugin uses four focused tabs:
+
+- **Publish:** destination, version, enabled platform summary, and build/publish actions.
+- **Changelog:** dedicated editor for the current version's `Assets/CHANGELOG.md` section.
+- **History:** persistent log of Butler publications, with release notes as they were when each version was uploaded.
+- **Settings:** itch.io accounts, platform channels and build locations, GitHub Actions configuration and advanced tools.
+
+New publication records are stored at `ProjectSettings/EasyItchPushReleaseHistory.json`. They survive editor restarts, include partial uploads and can be version-controlled with the project. Releases made before enabling the feature are not imported automatically.
+
+## macOS IL2CPP via GitHub Actions
+
+For a macOS Build Profile, choose **GitHub Actions (macOS)** under **Settings → Build profiles & channels**. Windows and WebGL can continue building locally.
 
 Cloud builds require GitHub CLI, a clean pushed Unity game repository, a generated workflow in that project's `.github/workflows/` directory, and GameCI licensing secrets. The plugin downloads the macOS archive and uses the existing version checks and Butler publishing flow. See [Cloud build setup](Assets/Plugins/EasyItchPush/Documentation~/cloud-builds.md).
 
@@ -90,9 +101,9 @@ This helps preserve build diagnostics even when Unity clears console output duri
 
 1. Install the package from the git URL above.
 2. Open `Project Settings > Easy Itch Push`.
-3. Configure release and/or test itch.io settings.
-4. Set your project version.
-5. Make sure your Unity Build Profiles are configured and enabled.
+3. Configure release and/or test itch.io destinations in the **Settings** tab.
+4. Set the project version in **Publish**, and edit its release notes in **Changelog**.
+5. Enable the desired Unity Build Profiles under **Settings → Build profiles & channels**.
 6. Install Butler from `Tools > Easy Itch Push > Install / Upgrade Butler`.
 7. Log in through `Tools > Easy Itch Push > Login`.
 
@@ -119,4 +130,5 @@ This helps preserve build diagnostics even when Unity clears console output duri
 
 - The plugin can build locally without uploading.
 - Pushes use versioned zip archives instead of raw build folders.
-- The plugin is focused on editor-side automation for local release workflows.
+- The plugin supports mixed local/cloud builds and stores publishing history in the Unity project.
+- History records only publications made through this plugin after the feature was installed.
