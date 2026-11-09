@@ -226,6 +226,36 @@ namespace EasyItchPush.Editor
             return result;
         }
 
+
+        // Executed by GitHub Actions through Unity's -batchmode -executeMethod.
+        // Reuse the exact Build Profile implementation used by local releases.
+        public static EasyItchPushBuildResult BuildCloudProfile(
+            EasyItchPushSettings settings, string profileName)
+        {
+            settings.SyncProfileMappingsWithBuildProfiles();
+            var job = CreateProfileBuildJobs(settings).FirstOrDefault(item =>
+                string.Equals(item.ProfileName, profileName, StringComparison.OrdinalIgnoreCase));
+            if (job == null)
+                throw new InvalidOperationException("Unknown or disabled cloud Build Profile: " + profileName);
+            if (job.BuildTarget != BuildTarget.StandaloneOSX)
+                throw new InvalidOperationException("Cloud runner currently supports macOS Build Profiles only.");
+            if (Application.platform != UnityEngine.RuntimePlatform.OSXEditor)
+                throw new InvalidOperationException("macOS IL2CPP requires a macOS Unity Editor runner.");
+
+            settings.SyncVersionToPlayerSettings();
+            var issues = new List<BuildPreflightIssue>();
+            ValidateEditorCompilationPrerequisites(issues);
+            ValidateChangelogPrerequisite(settings, issues);
+            ValidateProfileBuildPrerequisites(job, issues);
+            if (issues.Count > 0)
+                throw new InvalidOperationException(string.Join("; ", issues.Select(issue => issue.ToString())));
+
+            var result = BuildSingleProfile(settings, job, Array.Empty<string>(), settings.GetBuildOptions(true));
+            if (!result.Succeeded || string.IsNullOrEmpty(result.ArchivePath))
+                throw new InvalidOperationException("Cloud build failed for " + profileName);
+            return result;
+        }
+
         public static string GetProfileOutputPath(EasyItchPushSettings settings, BuildProfile profile)
         {
             settings.SyncProfileMappingsWithBuildProfiles();
