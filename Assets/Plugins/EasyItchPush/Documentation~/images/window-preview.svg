@@ -1,78 +1,86 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 860" width="1120" height="860" role="img" aria-labelledby="title desc">
-<title id="title">Easy Itch Push 1.1 preview, Publish tab</title>
-<desc id="desc">Illustrative rendering of the tabbed Easy Itch Push editor interface proposed in pull request 1. Not a captured Unity screenshot.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="766" viewBox="0 0 1160 766" role="img" aria-labelledby="title description">
+<title id="title">Easy Itch Push: Publish interface layout preview</title>
+<desc id="description">Illustrative preview, not a captured Unity Editor window. Publish, Changelog, History and Settings tabs; Publish shows destination, enabled build profiles, version, release notes summary and publishing actions.</desc>
 <defs>
-  <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#303237"/><stop offset="1" stop-color="#24262b"/></linearGradient>
-  <linearGradient id="header" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#393c42"/><stop offset="1" stop-color="#303339"/></linearGradient>
-  <linearGradient id="button" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#3873b4"/><stop offset="1" stop-color="#275788"/></linearGradient>
-  <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#05080b" flood-opacity=".3"/></filter>
-  <style>
-    text {font-family:Arial,Helvetica,sans-serif;fill:#e4e6e9}
-    .small{font-size:15px;fill:#b4bac4}
-    .label{font-size:15px;fill:#c7cdd5}
-    .big{font-size:21px;font-weight:700}
-    .field{fill:#25282d;stroke:#4b5159;stroke-width:1.3}
-    .line{stroke:#444a52;stroke-width:1}
-  </style>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#35383d"/><stop offset="1" stop-color="#26292d"/></linearGradient>
+<linearGradient id="button" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#547db2"/><stop offset="1" stop-color="#3b6398"/></linearGradient>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#e6e8ec}
+.muted{fill:#aeb6bf;font-size:15px}
+.label{font-size:15px}
+.heading{font-size:19px;font-weight:700}
+.panel{fill:#34383d;stroke:#565b62;stroke-width:1.5}
+.rule{stroke:#4d535a}
+</style>
 </defs>
-<rect width="1120" height="860" fill="#191b1f"/>
-<g filter="url(#shadow)">
- <rect x="30" y="26" width="1060" height="792" rx="11" fill="url(#shell)" stroke="#565961" stroke-width="1.3"/>
- <rect x="30" y="26" width="1060" height="49" rx="11" fill="url(#header)"/>
- <rect x="30" y="64" width="1060" height="11" fill="#303339"/>
- <path d="M30 75H1090" stroke="#555b63"/>
- <text x="57" y="57" font-size="18" font-weight="bold">Easy Itch Push</text>
- <rect x="932" y="38" rx="13" width="123" height="24" fill="#3b4147"/>
- <text x="950" y="55" font-size="13" fill="#d3d7de">1.1.0 preview</text>
- <text x="58" y="109" font-size="14" fill="#bcc4ce">Build, package and publish across platforms.</text>
+<rect width="1160" height="766" fill="#171a1e"/>
+<rect x="30" y="25" width="1100" height="700" rx="10" fill="url(#bg)" stroke="#515963"/>
+<rect x="30" y="25" width="1100" height="49" rx="9" fill="#3e4147"/>
+<text x="52" y="56" font-size="18" font-weight="700">Easy Itch Push</text>
+<text x="940" y="56" font-size="14" fill="#c4c9cf">1.1.0 draft</text>
+<text x="54" y="109" class="muted">Publish releases, edit notes and review your publishing history.</text>
+<rect x="50" y="128" width="1060" height="43" rx="5" fill="#292d32" stroke="#575e67"/>
+<rect x="53" y="131" width="261" height="37" rx="4" fill="#466c96"/>
+<text x="183" y="155" text-anchor="middle" font-size="16" font-weight="700">Publish</text>
+<text x="446" y="155" text-anchor="middle" font-size="16">Changelog</text>
+<text x="712" y="155" text-anchor="middle" font-size="16">History</text>
+<text x="977" y="155" text-anchor="middle" font-size="16">Settings</text>
+<text x="55" y="211" font-size="23" font-weight="700">Publish a build</text>
+<text x="55" y="234" class="muted">Choose a destination, check your enabled profiles and publish your build.</text>
 
- <!-- tab bar matching actual three section architecture -->
- <rect x="56" y="126" width="1008" height="47" rx="6" fill="#292c31" stroke="#4a4e56"/>
- <rect x="59" y="129" width="332" height="41" rx="5" fill="#3e638a"/>
- <text x="195" y="156" font-size="18" font-weight="bold" text-anchor="middle">Publish</text>
- <text x="558" y="156" font-size="18" text-anchor="middle" fill="#b7c0c9">Platforms</text>
- <text x="891" y="156" font-size="18" text-anchor="middle" fill="#b7c0c9">Settings</text>
+<rect x="53" y="256" width="678" height="158" rx="6" class="panel"/>
+<text x="69" y="284" class="heading">Destination</text>
+<rect x="70" y="296" width="644" height="34" rx="4" fill="#2b3036" stroke="#5a626c"/>
+<rect x="73" y="299" width="319" height="28" rx="4" fill="#426992"/>
+<text x="230" y="319" text-anchor="middle" font-size="15">Release</text>
+<text x="552" y="319" text-anchor="middle" font-size="15" fill="#c3cbd4">Test</text>
+<text x="71" y="355" font-size="19" font-weight="700">hush-cult/depthcall</text>
+<text x="71" y="378" class="muted">https://hush-cult.itch.io/depthcall</text>
 
- <text x="62" y="212" class="big">Destination</text>
- <rect x="62" y="228" width="985" height="42" rx="6" fill="#292c31" stroke="#4c525b"/>
- <rect x="65" y="231" width="486" height="36" rx="5" fill="#405f80"/>
- <text x="307" y="255" text-anchor="middle" font-size="17" font-weight="bold">Release</text>
- <text x="800" y="255" text-anchor="middle" font-size="17" fill="#b8bec7">Test</text>
- <text x="62" y="298" class="label">itch.io</text>
- <text x="180" y="298" font-size="17">hush-cult/depthcall</text>
+<rect x="53" y="424" width="678" height="160" rx="6" class="panel"/>
+<text x="69" y="452" class="heading">Build profiles</text>
+<text x="622" y="452" font-size="14" fill="#b1cced">Configure</text>
+<path d="M69 464H715" class="rule"/>
+<text x="72" y="492" class="label">Windows</text>
+<text x="465" y="492" class="muted">Local</text>
+<text x="619" y="492" class="muted">windows</text>
+<path d="M69 503H715" class="rule"/>
+<text x="72" y="527" class="label">WebGL</text>
+<text x="465" y="527" class="muted">Local</text>
+<text x="619" y="527" class="muted">html5</text>
+<path d="M69 536H715" class="rule"/>
+<text x="72" y="563" class="label">macOS</text>
+<text x="440" y="563" class="muted">GitHub Actions</text>
+<text x="633" y="563" class="muted">mac</text>
 
- <path d="M62 317H1048" class="line"/>
- <text x="62" y="350" class="big">Version</text>
- <text x="64" y="378" class="label">Major</text>
- <text x="397" y="378" class="label">Minor</text>
- <text x="729" y="378" class="label">Patch</text>
- <rect x="62" y="390" width="312" height="45" rx="4" class="field"/>
- <rect x="394" y="390" width="312" height="45" rx="4" class="field"/>
- <rect x="726" y="390" width="322" height="45" rx="4" class="field"/>
- <text x="78" y="419" font-size="18">1</text>
- <text x="409" y="419" font-size="18">1</text>
- <text x="742" y="419" font-size="18">0</text>
- <rect x="63" y="455" width="21" height="21" rx="3" class="field"/>
- <text x="95" y="472" class="label">Hotfix</text>
- <text x="826" y="471" class="label">Build version: v1.1.0</text>
+<rect x="53" y="598" width="678" height="55" rx="6" fill="url(#button)" stroke="#6c9cce"/>
+<text x="390" y="632" text-anchor="middle" font-size="20" font-weight="700">Build &amp; Publish (Release)</text>
+<rect x="53" y="662" width="331" height="40" rx="5" class="panel"/>
+<rect x="395" y="662" width="336" height="40" rx="5" class="panel"/>
+<text x="217" y="687" text-anchor="middle" font-size="16">Build only</text>
+<text x="562" y="687" text-anchor="middle" font-size="16">Publish existing</text>
 
- <path d="M62 491H1048" class="line"/>
- <text x="62" y="526" class="big">Changelog</text>
- <text x="866" y="526" class="small">Assets/CHANGELOG.md</text>
- <rect x="62" y="542" width="986" height="103" rx="6" class="field"/>
- <text x="80" y="573" font-size="16">- Add release notes for this version here.</text>
- <rect x="62" y="658" width="210" height="34" rx="5" fill="#3b424a" stroke="#626a75"/>
- <rect x="282" y="658" width="210" height="34" rx="5" fill="#3b424a" stroke="#626a75"/>
- <text x="168" y="681" text-anchor="middle" class="label">Save Changelog</text>
- <text x="387" y="681" text-anchor="middle" class="label">Reload Changelog</text>
+<rect x="743" y="256" width="367" height="154" rx="6" class="panel"/>
+<text x="763" y="284" class="heading">Version</text>
+<text x="765" y="308" class="muted">Major</text><text x="874" y="308" class="muted">Minor</text><text x="985" y="308" class="muted">Patch</text>
+<rect x="762" y="315" width="100" height="35" rx="4" fill="#242a30" stroke="#646a73"/>
+<rect x="872" y="315" width="100" height="35" rx="4" fill="#242a30" stroke="#646a73"/>
+<rect x="982" y="315" width="107" height="35" rx="4" fill="#242a30" stroke="#646a73"/>
+<text x="778" y="340" font-size="17">1</text><text x="888" y="340" font-size="17">1</text><text x="999" y="340" font-size="17">1</text>
+<text x="763" y="379" class="muted">Current: v1.1.1</text>
 
- <rect x="62" y="709" width="986" height="50" rx="7" fill="url(#button)" stroke="#619bd3"/>
- <text x="555" y="741" text-anchor="middle" font-size="20" font-weight="bold">Build &amp; Publish  ·  Release</text>
- <rect x="62" y="770" width="483" height="34" rx="5" fill="#454c55" stroke="#6b727c"/>
- <rect x="554" y="770" width="494" height="34" rx="5" fill="#454c55" stroke="#6b727c"/>
- <text x="303" y="793" text-anchor="middle" font-size="16">Build only</text>
- <text x="801" y="793" text-anchor="middle" font-size="16">Publish existing</text>
-</g>
-<rect x="32" y="827" width="1056" height="23" rx="5" fill="#252b32"/>
-<text x="560" y="843" font-size="12" text-anchor="middle" fill="#bcc5d0">Illustrative UI preview for PR #1. Not a screenshot captured from Unity.</text>
+<rect x="743" y="422" width="367" height="133" rx="6" class="panel"/>
+<text x="762" y="450" class="heading">Release notes</text>
+<text x="1057" y="450" font-size="14" fill="#accdef">Edit</text>
+<text x="763" y="480" class="muted">- Added adaptive camera framing</text>
+<text x="763" y="503" class="muted">- Added gamepad support</text>
+<text x="763" y="530" font-size="13" fill="#8f9ca9">Full editor in Changelog tab</text>
+
+<rect x="743" y="567" width="367" height="135" rx="6" class="panel"/>
+<text x="763" y="597" class="heading">Latest publication</text>
+<text x="1056" y="597" font-size="14" fill="#accdef">History</text>
+<text x="763" y="627" font-size="17">v1.1.0 · Release</text>
+<text x="763" y="651" class="muted">2026-11-09 21:40</text>
+<text x="763" y="675" font-size="14" fill="#a9d3b0">Published to all channels</text>
+<text x="580" y="753" font-size="12" text-anchor="middle" fill="#95a3b1">Illustrative layout preview, not a screenshot captured from Unity Editor.</text>
 </svg>
