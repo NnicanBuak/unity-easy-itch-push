@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -39,6 +40,9 @@ namespace EasyItchPush.Editor
         private static bool buildOptionsExpanded;
         private static bool toolsExpanded;
         private static string expandedHistoryId = string.Empty;
+        private static string historySearch = string.Empty;
+        private static int historyFilterMode;
+        private static int historyPageSize = 20;
         private static readonly string[] Tabs = { "Publish", "Changelog", "History", "Settings" };
 
         public static bool Draw(EasyItchPushSettings settings, DrawOptions options)
@@ -330,7 +334,42 @@ namespace EasyItchPush.Editor
                 return;
             }
 
-            foreach (var entry in entries)
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var nextSearch = EditorGUILayout.TextField("Search", historySearch);
+                if (nextSearch != historySearch)
+                {
+                    historySearch = nextSearch;
+                    historyPageSize = 20;
+                }
+                var nextMode = GUILayout.Toolbar(historyFilterMode,
+                    new[] { "All", "Release", "Test" }, GUILayout.Width(250));
+                if (nextMode != historyFilterMode)
+                {
+                    historyFilterMode = nextMode;
+                    historyPageSize = 20;
+                }
+            }
+            EditorGUILayout.Space(6);
+
+            var filtered = entries.Where(entry => entry != null &&
+                (historyFilterMode == 0 || string.Equals(entry.pushMode,
+                    historyFilterMode == 1 ? "Release" : "Test", System.StringComparison.OrdinalIgnoreCase)) &&
+                (string.IsNullOrWhiteSpace(historySearch) ||
+                    (entry.version ?? string.Empty).IndexOf(historySearch,
+                        System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (entry.changelog ?? string.Empty).IndexOf(historySearch,
+                        System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (entry.itchTarget ?? string.Empty).IndexOf(historySearch,
+                        System.StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+
+            if (filtered.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No releases match your search.", MessageType.Info);
+                return;
+            }
+
+            foreach (var entry in filtered.Take(historyPageSize))
             {
                 if (entry == null)
                     continue;
@@ -374,6 +413,13 @@ namespace EasyItchPush.Editor
                     }
                 }
                 EditorGUILayout.Space(4);
+            }
+
+            if (filtered.Count > historyPageSize)
+            {
+                if (GUILayout.Button("Show more releases (" + (filtered.Count - historyPageSize) + " remaining)",
+                        GUILayout.Height(30)))
+                    historyPageSize += 20;
             }
         }
 
