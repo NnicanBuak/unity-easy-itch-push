@@ -164,11 +164,16 @@ namespace EasyItchPush.Editor
             settings.SyncProfileMappingsWithBuildProfiles();
             settings.SyncVersionToPlayerSettings();
 
-            var jobs = CreateProfileBuildJobs(settings);
+            var jobs = CreateProfileBuildJobs(settings)
+                .Where(job => !settings.IsCloudProfile(job.ProfileName))
+                .ToList();
             var result = new EasyItchPushBuildAllResult();
             if (jobs.Count == 0)
             {
-                EditorUtility.DisplayDialog("No Build Profiles", "No enabled Unity Build Profiles were found.", "OK");
+                if (!settings.HasCloudBuilds(settings.PushMode))
+                {
+                    EditorUtility.DisplayDialog("No Build Profiles", "No enabled Unity Build Profiles were found.", "OK");
+                }
                 return result;
             }
 
