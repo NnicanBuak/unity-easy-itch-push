@@ -10,7 +10,7 @@ Easy Itch Push can build macOS IL2CPP using a macOS GitHub Actions runner, while
 4. Make a macOS **player** Build Profile (not a Dedicated Server profile) with **IL2CPP** selected in its Player Settings. Commit the profile.
 5. Open **Easy Itch Push → Settings**, specify GitHub `owner/repo`, branch, and workflow filename.
 6. Click **Generate workflow**, then **commit and push** the generated `.github/workflows/easy-itch-push-macos.yml` to the repository's **default branch**. GitHub requires the workflow to exist there before workflow_dispatch can run.
-7. Under **Platforms**, select **GitHub Actions (macOS)** for that macOS Build Profile, and leave other profiles set to **This computer**.
+7. Under **Settings → Build profiles & channels**, select **GitHub Actions (macOS)** for that macOS Build Profile, and leave other profiles set to **This computer**.
 
 ## Build & publish
 
@@ -30,3 +30,8 @@ macOS packages are zipped on the runner with native `zip -y` to retain symlinks 
 - Unity macOS IL2CPP output is not automatically signed/notarized. Apple Developer signing and notarization are separate release tasks.
 - The UI blocks while the CLI waits for the remote run. Build status and logs can be inspected in GitHub Actions.
 - Prefer private repositories for proprietary game source.
+
+
+## Release history
+
+Completed or partially uploaded Butler publications are stored in `ProjectSettings/EasyItchPushReleaseHistory.json` with their date, target channels, status and changelog snapshot. The **History** tab displays these records; the **Changelog** tab edits the currently configured version. Old itch.io uploads are not imported automatically. You can commit this file if desired; uncommitted updates to this history file are excluded from the cloud build clean-source check.
