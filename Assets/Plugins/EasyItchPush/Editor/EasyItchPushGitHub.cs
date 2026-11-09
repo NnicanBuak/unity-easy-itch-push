@@ -104,7 +104,11 @@ jobs:
                 !System.Text.RegularExpressions.Regex.IsMatch(settings.githubRepository,
                     @"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"))
                 throw new InvalidOperationException("Configure GitHub Repository as owner/repo.");
-            var status = EasyItchPushProcess.Run("git", "status --porcelain --untracked-files=normal");
+            // Release history is local publishing metadata, not a source-code change.
+            var status = EasyItchPushProcess.Run("git",
+                "status --porcelain --untracked-files=normal -- . " +
+                EasyItchPushProcess.Quote(":(exclude)ProjectSettings/EasyItchPushReleaseHistory.json") +
+                " " + EasyItchPushProcess.Quote(":(exclude)ProjectSettings/EasyItchPushReleaseHistory.json.tmp"));
             if (!status.Succeeded)
                 throw new InvalidOperationException("Unity project must be tracked in Git.");
             if (!string.IsNullOrWhiteSpace(status.Output))
