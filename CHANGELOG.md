@@ -1,3 +1,12 @@
+## v1.1.0 (draft)
+
+- Redesigned the Unity editor window with Publish, Changelog, History, and Settings tabs.
+- Added a responsive publishing dashboard with compact platform, release notes, and latest release summaries.
+- Preserved published version history with dated Butler channel records, including partial uploads and their original changelog snapshots.
+- Moved platform selection and cloud build configuration into Settings with grouped options.
+- Added optional GitHub Actions macOS IL2CPP builds and versioned artifact download.
+- Draft: Unity Editor compilation and macOS runner validation are still required.
+
 ## v1.0.6
 
 - Removed Easy Itch Push Linux IL2CPP sysroot/toolchain probing so Unity Build Profiles use the same toolchain discovery path as manual builds.
