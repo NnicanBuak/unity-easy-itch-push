@@ -26,7 +26,7 @@ namespace EasyItchPush.Editor
         public static void BuildAllProfiles()
         {
             var settings = GetPreparedSettings();
-            var result = EasyItchPushBuilder.BuildAllProfiles(settings);
+            var result = BuildAllWithCloud(settings, false);
             ShowBuildAllResult(result, "Build All Profiles", publishResult: null);
         }
 
@@ -43,7 +43,7 @@ namespace EasyItchPush.Editor
 
             EasyItchPushLog.Info($"Starting Build All Profiles and Push ({modeLabel})");
 
-            var result = EasyItchPushBuilder.BuildAllProfiles(settings, forceRelease: true);
+            var result = BuildAllWithCloud(settings, true);
             var publishResult = new PublishPipelineResult();
             if (EasyItchPushPushValidator.TryCollectBuildResult(settings, pushMode, result, out var artifacts))
             {
@@ -52,6 +52,42 @@ namespace EasyItchPush.Editor
             }
 
             ShowBuildAllResult(result, $"Build All Profiles ({modeLabel})", publishResult);
+        }
+
+        private static EasyItchPushBuildAllResult BuildAllWithCloud(EasyItchPushSettings settings, bool forceRelease)
+        {
+            settings.AutoSyncVersionWithPlayerSettings();
+            settings.SyncProfileMappingsWithBuildProfiles();
+            var all = new EasyItchPushBuildAllResult();
+
+            // Run cloud profiles first so an uncommitted local project cannot be
+            // silently built and then uploaded as if it came from that same commit.
+            foreach (var mapping in settings.profileChannelMappings ?? Array.Empty<EasyItchPushProfileMapping>())
+            {
+                if (mapping == null || !mapping.IsEnabled(settings.PushMode) ||
+                    mapping.buildLocation != EasyItchPushBuildLocation.GitHubActions)
+                    continue;
+                try
+                {
+                    all.Results.Add(EasyItchPushGitHub.Build(settings, mapping.profileName));
+                }
+                catch (Exception ex)
+                {
+                    EasyItchPushLog.Error("Cloud build for " + mapping.profileName + ": " + ex.Message);
+                    all.Results.Add(new EasyItchPushBuildResult
+                    {
+                        ProfileName = mapping.profileName,
+                        Channel = settings.GetChannelForProfileNoSync(mapping.profileName),
+                        Result = UnityEditor.Build.Reporting.BuildResult.Failed,
+                        TotalErrors = 1
+                    });
+                    return all;
+                }
+            }
+
+            var local = EasyItchPushBuilder.BuildAllProfiles(settings, forceRelease);
+            all.Results.AddRange(local.Results);
+            return all;
         }
 
         [MenuItem("Tools/Easy Itch Push/Push Existing Builds", priority = 2)]
