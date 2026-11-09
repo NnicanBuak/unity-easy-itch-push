@@ -12,7 +12,7 @@ namespace EasyItchPush.Editor
         public static void Open()
         {
             var window = GetWindow<EasyItchPushWindow>("Easy Itch Push");
-            window.minSize = new Vector2(420f, 560f);
+            window.minSize = new Vector2(620f, 460f);
             window.Show();
         }
 
@@ -39,7 +39,7 @@ namespace EasyItchPush.Editor
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("Easy Itch Push", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Build, package and publish across platforms.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("Publish releases, edit notes and review your publishing history.", EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.Space(10);
             EasyItchPushSettingsGui.Draw(settings,
                 new EasyItchPushSettingsGui.DrawOptions(showPushModeSelector: true, showActions: true));
