@@ -309,6 +309,10 @@ namespace EasyItchPush.Editor
         {
             DrawHeading("Release history", "Each successful or partially completed Butler publication is saved with its original release notes.");
             var entries = EasyItchPushReleaseHistory.GetRecords();
+            if (!string.IsNullOrEmpty(EasyItchPushReleaseHistory.LastReadError))
+                EditorGUILayout.HelpBox("Release history could not be read: " +
+                    EasyItchPushReleaseHistory.LastReadError +
+                    "\nThe file has not been overwritten.", MessageType.Error);
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField(entries.Count + " recorded publication(s)", EditorStyles.miniLabel);
@@ -357,7 +361,8 @@ namespace EasyItchPush.Editor
                         EditorGUILayout.Space(6);
                         EditorGUILayout.LabelField("Published changelog (snapshot)", EditorStyles.boldLabel);
                         var notes = string.IsNullOrWhiteSpace(entry.changelog) ? "No notes were available at publication time." : entry.changelog;
-                        EditorGUILayout.TextArea(notes, GUILayout.MinHeight(100));
+                        using (new EditorGUI.DisabledScope(true))
+                            EditorGUILayout.TextArea(notes, GUILayout.MinHeight(100));
                         using (new EditorGUILayout.HorizontalScope())
                         {
                             if (GUILayout.Button("Copy changelog", GUILayout.Width(130)))
