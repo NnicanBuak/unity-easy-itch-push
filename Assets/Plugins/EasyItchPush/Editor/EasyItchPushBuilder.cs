@@ -251,7 +251,7 @@ namespace EasyItchPush.Editor
             if (issues.Count > 0)
                 throw new InvalidOperationException(string.Join("; ", issues.Select(issue => issue.ToString())));
 
-            var result = BuildSingleProfile(settings, job, Array.Empty<string>(), settings.GetBuildOptions(true));
+            var result = BuildSingleProfile(settings, job, Array.Empty<string>(), settings.GetBuildOptions(true), requireIl2Cpp: true);
             if (!result.Succeeded || string.IsNullOrEmpty(result.ArchivePath))
                 throw new InvalidOperationException("Cloud build failed for " + profileName);
             return result;
@@ -473,7 +473,8 @@ namespace EasyItchPush.Editor
             EasyItchPushSettings settings,
             ProfileBuildJob job,
             string[] scenes,
-            BuildOptions buildOptions)
+            BuildOptions buildOptions,
+            bool requireIl2Cpp = false)
         {
             var started = DateTime.Now;
             var result = new EasyItchPushBuildResult
@@ -504,6 +505,12 @@ namespace EasyItchPush.Editor
 
                 settings.SyncVersionToActivePlayerSettingsOnly();
                 EasyItchPushLog.Info($"Using Unity Build Profile PlayerSettings for {job.ProfileName} ({job.BuildTarget}).");
+                if (requireIl2Cpp &&
+                    PlayerSettings.GetScriptingBackend(NamedBuildTarget.Standalone) != ScriptingImplementation.IL2CPP)
+                {
+                    throw new InvalidOperationException(
+                        "Cloud macOS profile must use IL2CPP. Configure Scripting Backend in the Unity Build Profile.");
+                }
 
                 if (HasScriptCompilationFailures())
                 {
@@ -1059,7 +1066,7 @@ namespace EasyItchPush.Editor
                     // System.IO.Compression does not preserve reliably.
                     var result = EasyItchPushProcess.Run("/usr/bin/zip",
                         "-qry -y " + EasyItchPushProcess.Quote(tempArchivePath) + " .",
-                        sourceDirectory, "Archiving macOS application");
+                        sourceDirectory);
                     if (!result.Succeeded)
                         throw new IOException("macOS ZIP creation failed: " + result.Error);
                 }
