@@ -20,6 +20,12 @@ In Unity open `Window > Package Manager > + > Add package from git URL...` and p
 
 ![Unity Easy Itch Push window](Assets/Plugins/EasyItchPush/Documentation~/images/window-screenshot.png)
 
+## New: macOS IL2CPP via GitHub Actions
+
+The Unity window now separates **Publish**, **Platforms**, and **Settings** instead of presenting one long settings sheet. For a macOS Build Profile, choose **GitHub Actions (macOS)** under Platforms; Windows and WebGL can continue building locally.
+
+Cloud builds require GitHub CLI, a clean pushed Unity game repository, a generated workflow in that project's `.github/workflows/` directory, and GameCI licensing secrets. The plugin downloads the macOS archive and uses the existing version checks and Butler publishing flow. See [Cloud build setup](Assets/Plugins/EasyItchPush/Documentation~/cloud-builds.md).
+
 ## What It Does
 
 - Builds all enabled Unity Build Profiles in one run.
