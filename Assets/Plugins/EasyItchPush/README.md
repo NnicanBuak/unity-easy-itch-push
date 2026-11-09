@@ -9,6 +9,7 @@ Unity Editor plugin for local and GitHub Actions builds, changelogs and itch.io 
 ## Install
 - Unity Package Manager: `https://github.com/NnicanBuak/unity-easy-itch-push.git`
 - In Unity open `Window > Package Manager > + > Add package from git URL...` and paste that URL.
+- To test the draft 1.1.0 UI before PR #1 is merged: `https://github.com/NnicanBuak/unity-easy-itch-push.git#feat/github-actions-builds-ux`.
 
 ## Interface layout preview
 
