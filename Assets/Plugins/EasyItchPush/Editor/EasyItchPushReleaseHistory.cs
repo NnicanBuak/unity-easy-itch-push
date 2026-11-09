@@ -39,11 +39,24 @@ namespace EasyItchPush.Editor
     {
         public const string FilePath = "ProjectSettings/EasyItchPushReleaseHistory.json";
         private static EasyItchPushReleaseHistoryData cached;
+        public static string LastReadError { get; private set; } = string.Empty;
 
         public static IReadOnlyList<EasyItchPushReleaseRecord> GetRecords(bool reload = false)
         {
             if (cached == null || reload)
-                cached = Load();
+            {
+                try
+                {
+                    cached = Load();
+                    LastReadError = string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    // Keep the EditorWindow usable, but never overwrite corrupt history.
+                    LastReadError = ex.Message;
+                    cached = new EasyItchPushReleaseHistoryData();
+                }
+            }
             return cached.records;
         }
 
