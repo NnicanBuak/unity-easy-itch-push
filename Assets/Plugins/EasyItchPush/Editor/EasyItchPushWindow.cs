@@ -41,7 +41,7 @@ namespace EasyItchPush.Editor
             EditorGUILayout.Space(8f);
 
             EditorGUILayout.LabelField("Easy Itch Push", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Build locally, authenticate with Butler, and push matching versioned platform archives to itch.io.", MessageType.None);
+            EditorGUILayout.LabelField("Build locally or on macOS Actions, then publish to itch.io.", EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.Space(8f);
             EditorGUILayout.LabelField("Push Mode", EditorStyles.boldLabel);
