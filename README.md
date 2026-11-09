@@ -16,6 +16,14 @@ https://github.com/NnicanBuak/unity-easy-itch-push.git
 
 In Unity open `Window > Package Manager > + > Add package from git URL...` and paste that URL.
 
+The redesigned **1.1.0 draft** lives in [PR #1](https://github.com/NnicanBuak/unity-easy-itch-push/pull/1), not `main`. To test the draft in Unity Package Manager, use:
+
+```text
+https://github.com/NnicanBuak/unity-easy-itch-push.git#feat/github-actions-builds-ux
+```
+
+The default URL continues to install the version from `main` until the PR is merged.
+
 ## Interface layout preview
 
 ![Four-tab Easy Itch Push interface layout, illustration rather than actual Unity screenshot](Assets/Plugins/EasyItchPush/Documentation~/images/window-preview.svg)
