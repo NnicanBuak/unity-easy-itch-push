@@ -30,30 +30,65 @@ namespace EasyItchPush.Editor
         internal readonly struct DrawOptions
         {
             public readonly bool ShowPushModeSelector;
+            public readonly bool ShowActions;
 
-            public DrawOptions(bool showPushModeSelector)
+            public DrawOptions(bool showPushModeSelector, bool showActions = false)
             {
                 ShowPushModeSelector = showPushModeSelector;
+                ShowActions = showActions;
             }
         }
+
+        private static int selectedTab;
+        private static readonly string[] Tabs = { "Publish", "Platforms", "Settings" };
 
         public static bool Draw(EasyItchPushSettings settings, DrawOptions options)
         {
             settings.SyncProfileMappingsWithBuildProfiles();
             var versionBeforeEdit = settings.CurrentVersion;
             EditorGUI.BeginChangeCheck();
-            var didReorderProfiles = false;
+            var reordered = false;
 
-            if (options.ShowPushModeSelector)
+            selectedTab = GUILayout.Toolbar(selectedTab, Tabs, GUILayout.Height(28));
+            EditorGUILayout.Space(12);
+
+            switch (selectedTab)
             {
-                EditorGUILayout.LabelField("Push Mode", EditorStyles.boldLabel);
-                DrawPushModeToolbar(settings);
-                EditorGUILayout.HelpBox(
-                    "Release pushes to versioned itch channels for the main page. Test pushes to the separate test page with base channels.",
-                    MessageType.Info);
+                case 0:
+                    DrawPublishTab(settings, options);
+                    break;
+                case 1:
+                    reordered = DrawProfileMappings(settings);
+                    break;
+                case 2:
+                    DrawSettingsTab(settings);
+                    break;
             }
 
-            EditorGUILayout.Space(8f);
+            var didVersionChange = DidVersionChange(versionBeforeEdit, settings.CurrentVersion);
+            if (didVersionChange)
+                PersistVersionChange(settings);
+
+            if (!EditorGUI.EndChangeCheck() && !reordered)
+                return false;
+            ScheduleSave();
+            return true;
+        }
+
+        private static void DrawPublishTab(EasyItchPushSettings settings, DrawOptions options)
+        {
+            if (options.ShowPushModeSelector)
+            {
+                EditorGUILayout.LabelField("Destination", EditorStyles.boldLabel);
+                DrawPushModeToolbar(settings);
+                EditorGUILayout.Space(6);
+            }
+
+            var mode = settings.PushMode;
+            var destination = settings.HasItchTarget(mode)
+                ? settings.GetItchGameTarget(mode) : "Not configured (see Settings)";
+            EditorGUILayout.LabelField("itch.io", destination, EditorStyles.wordWrappedLabel);
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("Version", EditorStyles.boldLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -61,66 +96,94 @@ namespace EasyItchPush.Editor
                 settings.versionMinor = Mathf.Max(0, EditorGUILayout.IntField("Minor", settings.versionMinor));
                 settings.versionPatch = Mathf.Max(0, EditorGUILayout.IntField("Patch", settings.versionPatch));
             }
+            settings.versionIsHotfix = EditorGUILayout.Toggle("Hotfix", settings.versionIsHotfix);
+            if (settings.versionIsHotfix)
+                settings.versionHotfixNumber = Mathf.Max(1, EditorGUILayout.IntField("Hotfix #", settings.versionHotfixNumber));
+            EditorGUILayout.LabelField("Build version", settings.ResolvedVersionWithPrefix);
+            EditorGUILayout.Space(8);
+            DrawCurrentVersionChangelog(settings, false);
+            EditorGUILayout.Space(10);
 
-            settings.versionIsHotfix = EditorGUILayout.Toggle("Is Hotfix", settings.versionIsHotfix);
-            using (new EditorGUI.DisabledScope(!settings.versionIsHotfix))
+            if (options.ShowPushModeSelector && options.ShowActions)
             {
-                settings.versionHotfixNumber = Mathf.Max(1, EditorGUILayout.IntField("Hotfix Number", settings.versionHotfixNumber));
+                if (GUILayout.Button("Build & Publish  ·  " + settings.GetPushModeLabel(mode), GUILayout.Height(46)))
+                    EasyItchPushActions.BuildAllProfilesAndPush();
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Build only", GUILayout.Height(30)))
+                        EasyItchPushActions.BuildAllProfiles();
+                    if (GUILayout.Button("Publish existing", GUILayout.Height(30)))
+                        EasyItchPushActions.PushExistingBuilds();
+                }
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Refresh archive changelogs"))
+                        EasyItchPushActions.UpdateExistingBuildChangelogs();
+                    if (GUILayout.Button("Open builds folder"))
+                        EasyItchPushActions.OpenBuildFolder();
+                }
+
+                if (!string.IsNullOrWhiteSpace(EasyItchPushGitHub.LastRunUrl))
+                {
+                    EditorGUILayout.Space(8);
+                    EditorGUILayout.LabelField("Last cloud build", EasyItchPushGitHub.Status);
+                    if (GUILayout.Button("Open GitHub Actions log"))
+                        Application.OpenURL(EasyItchPushGitHub.LastRunUrl);
+                }
             }
+        }
 
-            EditorGUILayout.LabelField("Preview", $"{settings.ResolvedVersionWithPrefix} / {settings.ResolvedVersion}");
-            EditorGUILayout.HelpBox(
-                "Version sync is automatic: edits here update global PlayerSettings and Unity 6 Build Profile Player Settings.",
-                MessageType.None);
-
-            var didVersionChange = DidVersionChange(versionBeforeEdit, settings.CurrentVersion);
-            if (didVersionChange)
-            {
-                PersistVersionChange(settings);
-            }
-
-            EditorGUILayout.Space(8f);
-            DrawCurrentVersionChangelog(settings, didVersionChange);
-
-            EditorGUILayout.Space(8f);
+        private static void DrawSettingsTab(EasyItchPushSettings settings)
+        {
+            EditorGUILayout.LabelField("itch.io accounts", EditorStyles.boldLabel);
             DrawActiveTargetFields(settings);
+            EditorGUILayout.Space(8);
 
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField("Build", EditorStyles.boldLabel);
-            settings.outputRoot = EditorGUILayout.TextField("Output Root", settings.outputRoot);
-            settings.developmentBuild = EditorGUILayout.Toggle("Development Build", settings.developmentBuild);
-            settings.allowDebugging = EditorGUILayout.Toggle("Allow Debugging", settings.allowDebugging);
-            settings.strictMode = EditorGUILayout.Toggle("Strict Mode", settings.strictMode);
-            settings.detailedBuildReport = EditorGUILayout.Toggle("Detailed Build Report", settings.detailedBuildReport);
-            settings.cleanBuildDirectory = EditorGUILayout.Toggle("Clean Build Directory", settings.cleanBuildDirectory);
-            settings.compressWithLz4HC = EditorGUILayout.Toggle("LZ4HC Compression", settings.compressWithLz4HC);
+            EditorGUILayout.LabelField("GitHub Actions (macOS)", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Optional cloud builds require GitHub CLI (gh auth login), a committed Unity project and GameCI Unity license secrets. Generate the workflow in your GAME repository.",
+                MessageType.None);
+            settings.githubRepository = EditorGUILayout.TextField("Repository", settings.githubRepository);
+            settings.githubBranch = EditorGUILayout.TextField("Branch", settings.githubBranch);
+            settings.githubWorkflow = EditorGUILayout.TextField("Workflow", settings.githubWorkflow);
 
-            EditorGUILayout.Space(8f);
-            didReorderProfiles = DrawProfileMappings(settings);
-
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField("Butler", EditorStyles.boldLabel);
-            var butlerPath = EasyItchPushButler.ResolveExecutable(settings);
-            EditorGUILayout.LabelField("Executable", string.IsNullOrEmpty(butlerPath) ? "Auto-detect (not found yet)" : butlerPath);
-            EditorGUILayout.HelpBox("Butler path is resolved automatically: installed copy in Library/EasyItchPush/Butler first, then PATH.", MessageType.None);
-
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField("After Push", EditorStyles.boldLabel);
-            settings.openGamePageOnSuccess = EditorGUILayout.Toggle("Open Game Page", settings.openGamePageOnSuccess);
-            settings.playSoundOnComplete = EditorGUILayout.Toggle("Completion Sound", settings.playSoundOnComplete);
-
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.HelpBox(BuildActivePushSummary(settings), MessageType.Info);
-
-            DrawProfileValidation(settings);
-
-            if (!EditorGUI.EndChangeCheck() && !didReorderProfiles)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                return false;
+                if (GUILayout.Button("Generate workflow"))
+                    EasyItchPushGitHub.InstallWorkflow();
+                if (GUILayout.Button("GitHub login"))
+                    EasyItchPushProcess.Run("gh", "auth login", "", "GitHub login");
+                if (GUILayout.Button("Check GitHub login"))
+                    EasyItchPushProcess.Run("gh", "auth status");
             }
 
-            ScheduleSave();
-            return true;
+            EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField("Build options", EditorStyles.boldLabel);
+            settings.outputRoot = EditorGUILayout.TextField("Output folder", settings.outputRoot);
+            settings.developmentBuild = EditorGUILayout.Toggle("Development build", settings.developmentBuild);
+            settings.allowDebugging = EditorGUILayout.Toggle("Allow debugging", settings.allowDebugging);
+            settings.strictMode = EditorGUILayout.Toggle("Strict mode", settings.strictMode);
+            settings.detailedBuildReport = EditorGUILayout.Toggle("Detailed report", settings.detailedBuildReport);
+            settings.cleanBuildDirectory = EditorGUILayout.Toggle("Clean before build", settings.cleanBuildDirectory);
+            settings.compressWithLz4HC = EditorGUILayout.Toggle("LZ4HC compression", settings.compressWithLz4HC);
+
+            EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField("Publishing tools", EditorStyles.boldLabel);
+            var executable = EasyItchPushButler.ResolveExecutable(settings);
+            EditorGUILayout.LabelField("Butler", string.IsNullOrEmpty(executable) ? "Not installed" : "Ready");
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Install / Update Butler"))
+                    EasyItchPushActions.InstallOrUpgradeButler();
+                if (GUILayout.Button("itch.io login"))
+                    EasyItchPushActions.Login();
+                if (GUILayout.Button("Check status"))
+                    EasyItchPushActions.Status();
+            }
+            settings.openGamePageOnSuccess = EditorGUILayout.Toggle("Open game page after push", settings.openGamePageOnSuccess);
+            settings.playSoundOnComplete = EditorGUILayout.Toggle("Sound on completion", settings.playSoundOnComplete);
         }
 
         public static void EnsureSettingsAreSynchronized(EasyItchPushSettings settings)
@@ -229,9 +292,7 @@ namespace EasyItchPush.Editor
                 return false;
             }
 
-            EditorGUILayout.HelpBox(
-                "Selected profiles are built in the order shown here. Drag a row by its handle to change the build queue. Base channel controls the local build folder and the test push channel. Release pushes automatically append the major/minor/patch version to that base channel.",
-                MessageType.None);
+            EditorGUILayout.LabelField("Select platforms and where each one is built. Drag to reorder.", EditorStyles.wordWrappedMiniLabel);
 
             var macOsProfileNames = GetMacOsProfileNames();
             var shouldWarnAboutMacOsMonoFallback = Application.platform != RuntimePlatform.OSXEditor;
@@ -295,6 +356,17 @@ namespace EasyItchPush.Editor
                 }
 
                 mapping.channel = EditorGUI.TextField(channelRect, mapping.channel);
+                var cloudEligible = macOsProfileNames.Contains(mapping.profileName);
+                using (new EditorGUI.DisabledScope(!cloudEligible))
+                {
+                    EditorGUI.indentLevel++;
+                    var location = (int)mapping.buildLocation;
+                    var updated = EditorGUILayout.Popup("Build on", location,
+                        new[] { "This computer", "GitHub Actions (macOS)" });
+                    if (updated != location)
+                        mapping.buildLocation = (EasyItchPushBuildLocation)updated;
+                    EditorGUI.indentLevel--;
+                }
 
                 if (currentEvent.type == EventType.MouseDown &&
                     currentEvent.button == 0 &&
@@ -330,7 +402,8 @@ namespace EasyItchPush.Editor
 
                 if (mapping.IsEnabled(pushMode) &&
                     shouldWarnAboutMacOsMonoFallback &&
-                    macOsProfileNames.Contains(mapping.profileName))
+                    macOsProfileNames.Contains(mapping.profileName) &&
+                    mapping.buildLocation == EasyItchPushBuildLocation.Local)
                 {
                     EditorGUILayout.HelpBox(
                         "This macOS profile will be built with Mono on the current editor host. IL2CPP for macOS requires a macOS machine.",
