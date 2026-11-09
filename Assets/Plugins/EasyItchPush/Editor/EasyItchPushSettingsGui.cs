@@ -47,7 +47,6 @@ namespace EasyItchPush.Editor
         public static bool Draw(EasyItchPushSettings settings, DrawOptions options)
         {
             settings.SyncProfileMappingsWithBuildProfiles();
-            var versionBeforeEdit = settings.CurrentVersion;
             EditorGUI.BeginChangeCheck();
             var reordered = false;
 
@@ -66,10 +65,6 @@ namespace EasyItchPush.Editor
                     DrawSettingsTab(settings);
                     break;
             }
-
-            var didVersionChange = DidVersionChange(versionBeforeEdit, settings.CurrentVersion);
-            if (didVersionChange)
-                PersistVersionChange(settings);
 
             if (!EditorGUI.EndChangeCheck() && !reordered)
                 return false;
@@ -92,6 +87,7 @@ namespace EasyItchPush.Editor
             EditorGUILayout.LabelField("itch.io", destination, EditorStyles.wordWrappedLabel);
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("Version", EditorStyles.boldLabel);
+            var versionBeforeEdit = settings.CurrentVersion;
             using (new EditorGUILayout.HorizontalScope())
             {
                 settings.versionMajor = Mathf.Max(0, EditorGUILayout.IntField("Major", settings.versionMajor));
@@ -102,8 +98,11 @@ namespace EasyItchPush.Editor
             if (settings.versionIsHotfix)
                 settings.versionHotfixNumber = Mathf.Max(1, EditorGUILayout.IntField("Hotfix #", settings.versionHotfixNumber));
             EditorGUILayout.LabelField("Build version", settings.ResolvedVersionWithPrefix);
+            var didVersionChange = DidVersionChange(versionBeforeEdit, settings.CurrentVersion);
+            if (didVersionChange)
+                PersistVersionChange(settings);
             EditorGUILayout.Space(8);
-            DrawCurrentVersionChangelog(settings, false);
+            DrawCurrentVersionChangelog(settings, didVersionChange);
             EditorGUILayout.Space(10);
 
             if (options.ShowPushModeSelector && options.ShowActions)
