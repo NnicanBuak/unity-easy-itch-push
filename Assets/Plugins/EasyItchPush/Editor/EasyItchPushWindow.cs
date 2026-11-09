@@ -36,76 +36,13 @@ namespace EasyItchPush.Editor
         {
             var settings = EasyItchPushSettings.Instance;
             EasyItchPushSettingsGui.FlushPendingSaveIfIdle(settings);
-
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            EditorGUILayout.Space(8f);
-
+            EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("Easy Itch Push", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Build locally or on macOS Actions, then publish to itch.io.", EditorStyles.wordWrappedMiniLabel);
-
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField("Push Mode", EditorStyles.boldLabel);
-            EditorGUI.BeginChangeCheck();
-            EasyItchPushSettingsGui.DrawPushModeToolbar(settings);
-            if (EditorGUI.EndChangeCheck())
-            {
-                EasyItchPushSettingsGui.ScheduleSave();
-            }
-
-            var modeLabel = settings.GetPushModeLabel(settings.PushMode);
-            EditorGUILayout.HelpBox(EasyItchPushSettingsGui.BuildActivePushSummary(settings), MessageType.Info);
-
-            EditorGUILayout.Space(8f);
-            if (GUILayout.Button($"Build All + Push ({modeLabel})", GUILayout.Height(52f)))
-            {
-                RunDelayed(EasyItchPushActions.BuildAllProfilesAndPush);
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Build All Profiles", GUILayout.Height(32f)))
-                {
-                    RunDelayed(EasyItchPushActions.BuildAllProfiles);
-                }
-
-                if (GUILayout.Button($"Push Existing ({modeLabel})", GUILayout.Height(32f)))
-                {
-                    RunDelayed(EasyItchPushActions.PushExistingBuilds);
-                }
-            }
-
-            if (GUILayout.Button("Update Existing Build Changelogs", GUILayout.Height(28f)))
-            {
-                RunDelayed(EasyItchPushActions.UpdateExistingBuildChangelogs);
-            }
-
-            if (GUILayout.Button("Open Build Folder", GUILayout.Height(28f)))
-            {
-                RunDelayed(EasyItchPushActions.OpenBuildFolder);
-            }
-
-            EditorGUILayout.Space(8f);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Install / Upgrade Butler"))
-                {
-                    RunDelayed(EasyItchPushActions.InstallOrUpgradeButler);
-                }
-
-                if (GUILayout.Button("Login"))
-                {
-                    RunDelayed(EasyItchPushActions.Login);
-                }
-
-                if (GUILayout.Button($"Status ({modeLabel})"))
-                {
-                    RunDelayed(EasyItchPushActions.Status);
-                }
-            }
-
-            EditorGUILayout.Space(12f);
-            EasyItchPushSettingsGui.Draw(settings, new EasyItchPushSettingsGui.DrawOptions(showPushModeSelector: false));
-
+            EditorGUILayout.LabelField("Build, package and publish across platforms.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.Space(10);
+            EasyItchPushSettingsGui.Draw(settings,
+                new EasyItchPushSettingsGui.DrawOptions(showPushModeSelector: true, showActions: true));
             EditorGUILayout.EndScrollView();
         }
 
