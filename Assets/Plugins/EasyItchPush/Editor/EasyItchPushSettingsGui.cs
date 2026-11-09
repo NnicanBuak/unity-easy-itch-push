@@ -125,7 +125,7 @@ namespace EasyItchPush.Editor
                     {
                         EditorGUILayout.LabelField("Build profiles", EditorStyles.boldLabel);
                         if (GUILayout.Button("Configure", GUILayout.Width(92)))
-                            selectedTab = 1;
+                            selectedTab = 2;
                     }
                     var count = 0;
                     foreach (var mapping in settings.profileChannelMappings ?? System.Array.Empty<EasyItchPushProfileMapping>())
