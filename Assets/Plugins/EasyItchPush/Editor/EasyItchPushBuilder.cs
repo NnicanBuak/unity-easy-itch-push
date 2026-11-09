@@ -11,7 +11,8 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Profile;
 using UnityEditor.Build.Reporting;
-using UnityEngine;
+using Application = UnityEngine.Application;
+using RuntimePlatform = UnityEngine.RuntimePlatform;
 
 namespace EasyItchPush.Editor
 {
