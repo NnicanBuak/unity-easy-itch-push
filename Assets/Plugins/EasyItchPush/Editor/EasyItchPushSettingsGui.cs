@@ -10,20 +10,11 @@ namespace EasyItchPush.Editor
         private const double SaveDebounceDelaySeconds = 0.3d;
         private const double ChangelogSaveDebounceDelaySeconds = 0.3d;
         private const float ChangelogTextAreaHeight = 180f;
-        private const float ProfileDragHandleWidth = 42f;
-        private const float ProfileDragHandleIconWidth = 20f;
-        private const float ProfileToggleWidth = 18f;
-        private const float ProfileRowSpacing = 4f;
         private static readonly string[] PushModeLabels = { "Release", "Test" };
-        private static readonly GUIContent ProfileDragHandleFallbackIcon = EditorGUIUtility.IconContent("d_Grid.MoveTool");
         private static bool pendingSave;
         private static bool pendingChangelogSave;
         private static double lastEditTime;
         private static double lastChangelogEditTime;
-        private static int dragSourceProfileIndex = -1;
-        private static int dragInsertProfileIndex = -1;
-        private static bool isDraggingProfileRow;
-        private static Vector2 dragStartMousePosition;
         private static string cachedChangelogVersion = string.Empty;
         private static string cachedChangelogNotes = string.Empty;
 
@@ -583,220 +574,80 @@ namespace EasyItchPush.Editor
 
         private static bool DrawProfileMappings(EasyItchPushSettings settings)
         {
-            EditorGUILayout.LabelField("Build Profiles", EditorStyles.boldLabel);
             if (settings.profileChannelMappings == null || settings.profileChannelMappings.Length == 0)
             {
-                EditorGUILayout.HelpBox("Create Unity Build Profiles first. Selected profiles here will be built and pushed.", MessageType.Info);
+                EditorGUILayout.HelpBox("No Unity Build Profiles found. Add profiles under File > Build Profiles.", MessageType.Info);
                 return false;
             }
 
-            EditorGUILayout.LabelField("Select platforms and where each one is built. Drag to reorder.", EditorStyles.wordWrappedMiniLabel);
-
-            var macOsProfileNames = GetMacOsProfileNames();
-            var shouldWarnAboutMacOsMonoFallback = Application.platform != RuntimePlatform.OSXEditor;
             var pushMode = settings.PushMode;
-            var didReorder = false;
-            var currentEvent = Event.current;
-            Rect? firstRowRect = null;
-            Rect? lastRowRect = null;
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Space(ProfileDragHandleWidth + ProfileToggleWidth + (ProfileRowSpacing * 2f));
-                EditorGUILayout.LabelField("Profile", EditorStyles.miniBoldLabel);
-                EditorGUILayout.LabelField("Base Channel", EditorStyles.miniBoldLabel);
-            }
+            var macOsProfiles = GetMacOsProfileNames();
+            var reordered = false;
+            EditorGUILayout.LabelField("Enable profiles for " + settings.GetPushModeLabel(pushMode) +
+                " and choose their itch.io channels.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.Space(4);
 
             for (var i = 0; i < settings.profileChannelMappings.Length; i++)
             {
                 var mapping = settings.profileChannelMappings[i];
                 if (mapping == null)
-                {
                     continue;
-                }
 
-                var rowRect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
-                if (!firstRowRect.HasValue)
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                 {
-                    firstRowRect = rowRect;
-                }
-                lastRowRect = rowRect;
-
-                var fieldWidth = rowRect.width - ProfileDragHandleWidth - ProfileToggleWidth - (ProfileRowSpacing * 3f);
-                var profileWidth = Mathf.Max(120f, fieldWidth * 0.45f);
-                var channelWidth = Mathf.Max(120f, fieldWidth - profileWidth);
-                var handleRect = new Rect(rowRect.x, rowRect.y, ProfileDragHandleWidth, rowRect.height);
-                var toggleRect = new Rect(handleRect.xMax + ProfileRowSpacing, rowRect.y, ProfileToggleWidth, rowRect.height);
-                var profileRect = new Rect(toggleRect.xMax + ProfileRowSpacing, rowRect.y, profileWidth, rowRect.height);
-                var channelRect = new Rect(profileRect.xMax + ProfileRowSpacing, rowRect.y, channelWidth, rowRect.height);
-
-                EditorGUIUtility.AddCursorRect(handleRect, MouseCursor.Pan);
-
-                if (isDraggingProfileRow && currentEvent.type == EventType.Repaint && dragSourceProfileIndex == i)
-                {
-                    EditorGUI.DrawRect(rowRect, new Color(0.35f, 0.55f, 0.85f, 0.12f));
-                }
-
-                DrawProfileInsertMarker(rowRect, i);
-
-                DrawProfileDragHandle(handleRect);
-
-                var isEnabled = mapping.IsEnabled(pushMode);
-                var updatedIsEnabled = EditorGUI.Toggle(toggleRect, isEnabled);
-                if (updatedIsEnabled != isEnabled)
-                {
-                    mapping.SetEnabled(pushMode, updatedIsEnabled);
-                }
-
-                using (new EditorGUI.DisabledScope(true))
-                {
-                    EditorGUI.TextField(profileRect, mapping.profileName);
-                }
-
-                mapping.channel = EditorGUI.TextField(channelRect, mapping.channel);
-                if (macOsProfileNames.Contains(mapping.profileName))
-                {
-                    EditorGUI.indentLevel++;
-                    var location = (int)mapping.buildLocation;
-                    var updated = EditorGUILayout.Popup("Build on", location,
-                        new[] { "This computer", "GitHub Actions (macOS)" });
-                    if (updated != location)
-                        mapping.buildLocation = (EasyItchPushBuildLocation)updated;
-                    EditorGUI.indentLevel--;
-                }
-
-                if (currentEvent.type == EventType.MouseDown &&
-                    currentEvent.button == 0 &&
-                    handleRect.Contains(currentEvent.mousePosition))
-                {
-                    dragSourceProfileIndex = i;
-                    dragInsertProfileIndex = i;
-                    isDraggingProfileRow = false;
-                    dragStartMousePosition = currentEvent.mousePosition;
-                    currentEvent.Use();
-                }
-
-                if (dragSourceProfileIndex == i &&
-                    currentEvent.type == EventType.MouseDrag &&
-                    currentEvent.button == 0 &&
-                    (currentEvent.mousePosition - dragStartMousePosition).sqrMagnitude > 16f)
-                {
-                    isDraggingProfileRow = true;
-                    currentEvent.Use();
-                }
-
-                if (isDraggingProfileRow)
-                {
-                    if (rowRect.Contains(currentEvent.mousePosition))
+                    var enabled = mapping.IsEnabled(pushMode);
+                    using (new EditorGUILayout.HorizontalScope())
                     {
-                        dragInsertProfileIndex = currentEvent.mousePosition.y <= rowRect.center.y ? i : i + 1;
-                    }
-                    else if (firstRowRect.HasValue && currentEvent.mousePosition.y < firstRowRect.Value.yMin)
-                    {
-                        dragInsertProfileIndex = 0;
-                    }
-                }
-
-                if (mapping.IsEnabled(pushMode) &&
-                    shouldWarnAboutMacOsMonoFallback &&
-                    macOsProfileNames.Contains(mapping.profileName) &&
-                    mapping.buildLocation == EasyItchPushBuildLocation.Local)
-                {
-                    EditorGUILayout.HelpBox(
-                        "This macOS profile will be built with Mono on the current editor host. IL2CPP for macOS requires a macOS machine.",
-                        MessageType.Warning);
-                }
-            }
-
-            if (isDraggingProfileRow)
-            {
-                if (lastRowRect.HasValue && currentEvent.mousePosition.y > lastRowRect.Value.yMax)
-                {
-                    dragInsertProfileIndex = settings.profileChannelMappings.Length;
-                }
-
-                if (lastRowRect.HasValue)
-                {
-                    DrawTrailingProfileInsertMarker(lastRowRect.Value, settings.profileChannelMappings.Length);
-                }
-            }
-
-            if (currentEvent.type == EventType.MouseUp && currentEvent.button == 0 && dragSourceProfileIndex >= 0)
-            {
-                if (isDraggingProfileRow)
-                {
-                    var targetIndex = Mathf.Clamp(dragInsertProfileIndex, 0, settings.profileChannelMappings.Length);
-                    if (targetIndex > dragSourceProfileIndex)
-                    {
-                        targetIndex--;
+                        var nextEnabled = EditorGUILayout.Toggle(enabled, GUILayout.Width(22));
+                        if (enabled != nextEnabled)
+                            mapping.SetEnabled(pushMode, nextEnabled);
+                        EditorGUILayout.LabelField(mapping.profileName, EditorStyles.boldLabel);
+                        GUILayout.FlexibleSpace();
+                        using (new EditorGUI.DisabledScope(i == 0))
+                        {
+                            if (GUILayout.Button("Up", GUILayout.Width(40)))
+                            {
+                                reordered = settings.MoveProfileMapping(i, i - 1);
+                                if (reordered) GUI.changed = true;
+                            }
+                        }
+                        using (new EditorGUI.DisabledScope(i == settings.profileChannelMappings.Length - 1))
+                        {
+                            if (GUILayout.Button("Down", GUILayout.Width(50)))
+                            {
+                                reordered = settings.MoveProfileMapping(i, i + 1);
+                                if (reordered) GUI.changed = true;
+                            }
+                        }
                     }
 
-                    if (targetIndex >= 0 &&
-                        targetIndex < settings.profileChannelMappings.Length &&
-                        settings.MoveProfileMapping(dragSourceProfileIndex, targetIndex))
+                    if (mapping.IsEnabled(pushMode))
                     {
-                        didReorder = true;
-                        GUI.changed = true;
+                        mapping.channel = EditorGUILayout.TextField("itch.io channel", mapping.channel);
+                        if (macOsProfiles.Contains(mapping.profileName))
+                        {
+                            mapping.buildLocation = (EasyItchPushBuildLocation)EditorGUILayout.Popup(
+                                "Build on", (int)mapping.buildLocation,
+                                new[] { "This computer", "GitHub Actions (macOS)" });
+
+                            if (Application.platform != RuntimePlatform.OSXEditor &&
+                                mapping.buildLocation == EasyItchPushBuildLocation.Local)
+                                EditorGUILayout.HelpBox(
+                                    "macOS IL2CPP needs a macOS host. Choose GitHub Actions to build IL2CPP from Windows.",
+                                    MessageType.Warning);
+                        }
+                        else
+                        {
+                            EditorGUILayout.LabelField("Build on", "This computer", EditorStyles.miniLabel);
+                        }
                     }
                 }
-
-                ResetProfileDragState();
-                currentEvent.Use();
+                if (reordered)
+                    break; // Avoid rendering the same element twice after a reorder.
+                EditorGUILayout.Space(3);
             }
 
-            if (currentEvent.type == EventType.Ignore || currentEvent.type == EventType.MouseLeaveWindow)
-            {
-                ResetProfileDragState();
-            }
-
-            return didReorder;
-        }
-
-        private static void DrawProfileInsertMarker(Rect rowRect, int rowIndex)
-        {
-            if (!isDraggingProfileRow || dragInsertProfileIndex != rowIndex)
-            {
-                return;
-            }
-
-            var markerRect = new Rect(rowRect.x, rowRect.y - 2f, rowRect.width, 2f);
-            EditorGUI.DrawRect(markerRect, new Color(0.35f, 0.7f, 1f, 1f));
-        }
-
-        private static void DrawTrailingProfileInsertMarker(Rect lastRowRect, int rowCount)
-        {
-            if (!isDraggingProfileRow || dragInsertProfileIndex != rowCount)
-            {
-                return;
-            }
-
-            var markerRect = new Rect(lastRowRect.x, lastRowRect.yMax + 1f, lastRowRect.width, 2f);
-            EditorGUI.DrawRect(markerRect, new Color(0.35f, 0.7f, 1f, 1f));
-        }
-
-        private static void ResetProfileDragState()
-        {
-            dragSourceProfileIndex = -1;
-            dragInsertProfileIndex = -1;
-            isDraggingProfileRow = false;
-        }
-
-        private static void DrawProfileDragHandle(Rect handleRect)
-        {
-            var dragHandleStyle = GUI.skin.FindStyle("RL DragHandle");
-            var dragHandleIconRect = new Rect(
-                handleRect.x + ((handleRect.width - ProfileDragHandleIconWidth) * 0.5f),
-                handleRect.y,
-                ProfileDragHandleIconWidth,
-                handleRect.height);
-
-            if (dragHandleStyle != null)
-            {
-                GUI.Label(dragHandleIconRect, GUIContent.none, dragHandleStyle);
-                return;
-            }
-
-            GUI.Box(dragHandleIconRect, ProfileDragHandleFallbackIcon, EditorStyles.miniButton);
+            return reordered;
         }
 
         private static void DrawProfileValidation(EasyItchPushSettings settings)
