@@ -16,9 +16,11 @@ https://github.com/NnicanBuak/unity-easy-itch-push.git
 
 In Unity open `Window > Package Manager > + > Add package from git URL...` and paste that URL.
 
-## Screenshot
+## Interface layout preview
 
-![Unity Easy Itch Push window](Assets/Plugins/EasyItchPush/Documentation~/images/window-screenshot.png)
+![Four-tab Easy Itch Push interface layout, illustration rather than actual Unity screenshot](Assets/Plugins/EasyItchPush/Documentation~/images/window-preview.svg)
+
+*Illustrative layout for the draft PR, not a screenshot captured from Unity. Replace after a real Unity Editor test.*
 
 ## Redesigned Unity UI and release history
 
