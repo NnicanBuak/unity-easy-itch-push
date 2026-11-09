@@ -39,6 +39,8 @@ namespace EasyItchPush.Editor
             }
         }
 
+        private static void Defer(System.Action action) => EditorApplication.delayCall += () => action();
+
         private static int selectedTab;
         private static readonly string[] Tabs = { "Publish", "Platforms", "Settings" };
 
@@ -107,22 +109,22 @@ namespace EasyItchPush.Editor
             if (options.ShowPushModeSelector && options.ShowActions)
             {
                 if (GUILayout.Button("Build & Publish  ·  " + settings.GetPushModeLabel(mode), GUILayout.Height(46)))
-                    EasyItchPushActions.BuildAllProfilesAndPush();
+                    Defer(EasyItchPushActions.BuildAllProfilesAndPush);
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Build only", GUILayout.Height(30)))
-                        EasyItchPushActions.BuildAllProfiles();
+                        Defer(EasyItchPushActions.BuildAllProfiles);
                     if (GUILayout.Button("Publish existing", GUILayout.Height(30)))
-                        EasyItchPushActions.PushExistingBuilds();
+                        Defer(EasyItchPushActions.PushExistingBuilds);
                 }
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Refresh archive changelogs"))
-                        EasyItchPushActions.UpdateExistingBuildChangelogs();
+                        Defer(EasyItchPushActions.UpdateExistingBuildChangelogs);
                     if (GUILayout.Button("Open builds folder"))
-                        EasyItchPushActions.OpenBuildFolder();
+                        Defer(EasyItchPushActions.OpenBuildFolder);
                 }
 
                 if (!string.IsNullOrWhiteSpace(EasyItchPushGitHub.LastRunUrl))
@@ -152,11 +154,12 @@ namespace EasyItchPush.Editor
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Generate workflow"))
-                    EasyItchPushGitHub.InstallWorkflow();
-                if (GUILayout.Button("GitHub login"))
-                    EasyItchPushProcess.Run("gh", "auth login", "", "GitHub login");
+                    Defer(EasyItchPushGitHub.InstallWorkflow);
+                if (GUILayout.Button("GitHub CLI"))
+                    Application.OpenURL("https://cli.github.com/");
+                EditorGUILayout.LabelField("Authenticate in a terminal: gh auth login", EditorStyles.wordWrappedMiniLabel);
                 if (GUILayout.Button("Check GitHub login"))
-                    EasyItchPushProcess.Run("gh", "auth status");
+                    Defer(() => EasyItchPushProcess.Run("gh", "auth status"));
             }
 
             EditorGUILayout.Space(10);
@@ -176,11 +179,11 @@ namespace EasyItchPush.Editor
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Install / Update Butler"))
-                    EasyItchPushActions.InstallOrUpgradeButler();
+                    Defer(EasyItchPushActions.InstallOrUpgradeButler);
                 if (GUILayout.Button("itch.io login"))
-                    EasyItchPushActions.Login();
+                    Defer(EasyItchPushActions.Login);
                 if (GUILayout.Button("Check status"))
-                    EasyItchPushActions.Status();
+                    Defer(EasyItchPushActions.Status);
             }
             settings.openGamePageOnSuccess = EditorGUILayout.Toggle("Open game page after push", settings.openGamePageOnSuccess);
             settings.playSoundOnComplete = EditorGUILayout.Toggle("Sound on completion", settings.playSoundOnComplete);
@@ -356,8 +359,7 @@ namespace EasyItchPush.Editor
                 }
 
                 mapping.channel = EditorGUI.TextField(channelRect, mapping.channel);
-                var cloudEligible = macOsProfileNames.Contains(mapping.profileName);
-                using (new EditorGUI.DisabledScope(!cloudEligible))
+                if (macOsProfileNames.Contains(mapping.profileName))
                 {
                     EditorGUI.indentLevel++;
                     var location = (int)mapping.buildLocation;
