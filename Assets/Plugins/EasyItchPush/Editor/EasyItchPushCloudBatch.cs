@@ -1,6 +1,5 @@
 using System;
-using System.Linq;
-using UnityEditor;
+using System.IO;
 using UnityEngine;
 
 namespace EasyItchPush.Editor
@@ -11,11 +10,13 @@ namespace EasyItchPush.Editor
         public static void Build()
         {
             var args = Environment.GetCommandLineArgs();
-            var profileName = ReadArgument(args, "-easyItchProfile");
-            var expectedVersion = ReadArgument(args, "-easyItchVersion");
+            var profileName = Environment.GetEnvironmentVariable("EASY_ITCH_PUSH_PROFILE") ??
+                              ReadArgument(args, "-easyItchProfile");
+            var expectedVersion = Environment.GetEnvironmentVariable("EASY_ITCH_PUSH_VERSION") ??
+                                  ReadArgument(args, "-easyItchVersion");
 
             if (string.IsNullOrWhiteSpace(profileName) || string.IsNullOrWhiteSpace(expectedVersion))
-                throw new ArgumentException("Cloud build requires -easyItchProfile and -easyItchVersion.");
+                throw new ArgumentException("Cloud build requires a profile and expected version.");
 
             var settings = EasyItchPushSettings.Instance;
             settings.AutoSyncVersionWithPlayerSettings();
@@ -25,7 +26,9 @@ namespace EasyItchPush.Editor
                     settings.ResolvedVersion + " != " + expectedVersion);
 
             // Keep CI archives within the checked-out workspace for upload-artifact.
-            settings.outputRoot = "Builds";
+            var workspace = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE");
+            settings.outputRoot = Path.GetFullPath(Path.Combine(workspace ?? Environment.CurrentDirectory,
+                EasyItchPushGitHub.CloudOutputDirectory));
             var result = EasyItchPushBuilder.BuildCloudProfile(settings, profileName);
             Debug.Log("Easy Itch Push cloud artifact: " + result.ArchivePath);
         }
