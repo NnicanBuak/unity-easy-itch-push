@@ -56,6 +56,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Restore Unity Library cache
+        uses: actions/cache@v4
+        with:
+          path: '__PROJECT_PATH__/Library'
+          key: Library-StandaloneOSX-__DOLLAR__{{ hashFiles('__PROJECT_PATH__/Assets/**', '__PROJECT_PATH__/Packages/**', '__PROJECT_PATH__/ProjectSettings/**') }}
+          restore-keys: |
+            Library-StandaloneOSX-
       - name: Build macOS IL2CPP using the project Build Profile
         uses: game-ci/unity-builder@v4
         env:

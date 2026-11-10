@@ -5,6 +5,7 @@
 - Preserved published version history with dated Butler channel records, including partial uploads and their original changelog snapshots.
 - Moved platform selection and cloud build configuration into Settings with grouped options.
 - Added optional GitHub Actions macOS IL2CPP builds and versioned artifact download.
+- The generated macOS workflow now caches the Unity `Library` folder (actions/cache) so cloud builds reuse imported assets.
 - Draft: Unity Editor compilation and macOS runner validation are still required.
 
 ## v1.0.6
