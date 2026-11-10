@@ -467,7 +467,7 @@ namespace EasyItchPush.Editor
                 if (cloudExpanded)
                 {
                     EditorGUILayout.HelpBox(
-                        "Requires GitHub CLI (gh auth login), a committed project and GameCI licensing secrets. The workflow is generated in your game project.",
+                        "Requires GitHub CLI (gh auth login), a committed project and GameCI licensing secrets. The workflow is generated at the Git repository root.",
                         MessageType.None);
                     settings.githubRepository = EditorGUILayout.TextField("Repository", settings.githubRepository);
                     settings.githubBranch = EditorGUILayout.TextField("Branch", settings.githubBranch);

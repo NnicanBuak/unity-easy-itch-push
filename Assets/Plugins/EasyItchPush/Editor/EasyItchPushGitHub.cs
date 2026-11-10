@@ -27,6 +27,8 @@ namespace EasyItchPush.Editor
         public static string LastRunUrl { get; private set; } = "";
         public static bool IsBusy { get; private set; }
 
+        internal const string CloudOutputDirectory = "Builds";
+
         private const string Workflow = @"name: Easy Itch Push macOS
 run-name: Easy Itch Push __DOLLAR__{{ inputs.request_id }}
 on:
@@ -60,28 +62,44 @@ jobs:
           UNITY_LICENSE: __DOLLAR__{{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: __DOLLAR__{{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: __DOLLAR__{{ secrets.UNITY_PASSWORD }}
+          EASY_ITCH_PUSH_PROFILE: __DOLLAR__{{ inputs.profile }}
+          EASY_ITCH_PUSH_VERSION: __DOLLAR__{{ inputs.version }}
         with:
+          projectPath: '__PROJECT_PATH__'
           targetPlatform: StandaloneOSX
           buildMethod: EasyItchPush.Editor.EasyItchPushCloudBatch.Build
-          customParameters: -easyItchProfile ""__DOLLAR__{{ inputs.profile }}"" -easyItchVersion ""__DOLLAR__{{ inputs.version }}""
           cacheUnityInstallationOnMac: true
       - name: Upload archives
         uses: actions/upload-artifact@v4
         with:
           name: easy-itch-push-__DOLLAR__{{ inputs.request_id }}
-          path: Builds/**/*.zip
+          path: __CLOUD_OUTPUT_DIRECTORY__/**/*.zip
           if-no-files-found: error
           retention-days: 7
 ";
 
         public static void InstallWorkflow()
         {
-            var path = Path.GetFullPath(".github/workflows/easy-itch-push-macos.yml");
+            var projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var gitRoot = EasyItchPushProcess.Run("git", "rev-parse --show-toplevel", projectRoot);
+            if (!gitRoot.Succeeded || string.IsNullOrWhiteSpace(gitRoot.Output))
+            {
+                EditorUtility.DisplayDialog("Could not generate workflow",
+                    "The Unity project must be inside a Git working tree.", "OK");
+                return;
+            }
+
+            var repositoryRoot = gitRoot.Output.Trim();
+            var projectPath = Path.GetRelativePath(repositoryRoot, projectRoot).Replace('\\', '/');
+            var path = Path.Combine(repositoryRoot, ".github", "workflows", "easy-itch-push-macos.yml");
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             if (File.Exists(path) && !EditorUtility.DisplayDialog("Existing workflow",
                     "Replace .github/workflows/easy-itch-push-macos.yml?", "Replace", "Cancel"))
                 return;
-            File.WriteAllText(path, Workflow.Replace("__DOLLAR__", "$"), new UTF8Encoding(false));
+            var contents = Workflow.Replace("__DOLLAR__", "$")
+                .Replace("__CLOUD_OUTPUT_DIRECTORY__", CloudOutputDirectory)
+                .Replace("__PROJECT_PATH__", projectPath.Replace("'", "''"));
+            File.WriteAllText(path, contents, new UTF8Encoding(false));
             EditorUtility.DisplayDialog("Cloud workflow generated",
                 "Commit and push .github/workflows/easy-itch-push-macos.yml to your game repository's DEFAULT branch.\n\n" +
                 "Also commit the plugin, project version, Build Profiles and changelog. " +
